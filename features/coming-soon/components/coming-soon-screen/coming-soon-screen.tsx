@@ -1,8 +1,10 @@
 import Image from "next/image";
 
+import { getSiteSettings } from "@/lib/site-mode.server";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
+import { DropCountdown } from "../drop-countdown/drop-countdown";
 import { SubscribeForm } from "../subscribe-form/subscribe-form";
 
 // Founder uploads a hero shot into this slot via the admin (P4); until then
@@ -12,7 +14,13 @@ const BG_SLOT_KEY = "coming_soon_bg";
 type BackgroundSlot = { url: string; alt: string };
 
 export async function ComingSoonScreen() {
-  const background = await getBackgroundSlot();
+  // getSiteSettings is memoised per request, so this shares the read the mode
+  // gate in "/" already made. drop_at is null in the common case and the
+  // countdown block then renders nothing at all -- no reserved space, no shift.
+  const [background, { dropAt }] = await Promise.all([
+    getBackgroundSlot(),
+    getSiteSettings(),
+  ]);
 
   return (
     <main
@@ -42,6 +50,8 @@ export async function ComingSoonScreen() {
           </h1>
           <p className="font-body text-sm tracking-[0.35em]">THE FIRST ISSUE</p>
         </header>
+
+        {dropAt ? <DropCountdown targetIso={dropAt.toISOString()} /> : null}
 
         <SubscribeForm />
       </div>

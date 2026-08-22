@@ -70,6 +70,43 @@ Google fonts (Anton/Archivo) until P2's font decision; image slots beyond
 **Watch for:** never commit `.env`; Resend sends from `onboarding@resend.dev` until the domain is verified in P5 — fine for testing, say so in the phase report.
 
 ### P2 — Storefront
+**BUILT 2026-08-22, uncommitted (commits are Zach's call; hash to be recorded at
+commit). Built by parallel lanes A–C per `p2-handoff.md`, verified and closed by
+Lane D the same session.**
+**Gates at close:** `bunx tsc --noEmit` green; vitest 51/51; lint clean on every
+P2 file (2 warnings live in Lane J's in-flight `features/coming-soon` countdown
+work — the MVP parallel wave per `mvp-parallel-handoff.md` shares this tree);
+`bun run build` deferred to the wave's settle-point because it requires stopping
+the dev server other active build sessions are using. Run the full gate line
+before the P3 close.
+**Settle-point gate run (2026-08-22, wave quiescent — lanes E–J all reported):**
+full line green from a cold `.next` — `bun run build` ✓ (15 routes + proxy),
+`bunx tsc --noEmit` ✓ (the stale generated-validator errors cleared with the
+rebuild, as expected), lint ✓ zero warnings, vitest 72/72 ✓. Dev server
+restarted after; `coming_soon` + `/product/*` 307 re-confirmed. P2's one
+deferred gate item is closed.
+**Proofs:** desktop (1280) + mobile (375) screenshots of landing, grid,
+`/product/star-shorts`, `/product/vamp-tee` against seed data, shipped in chat;
+sold-out visual proven against real data (vamp-tee M zeroed → captured →
+restored to 12, ~15 s window); every `<img>` resolves through `/_next/image`
+(0 raw storage URLs on `/` and product pages); LCP hero is the seeded WebP
+(19.5 KB served at w=1920 — the 3–5 MB PNG hazard never reaches the page);
+`/product/*` 307s to `/` in coming_soon; mode restored to `coming_soon` at
+close (the DB is shared with prod, so live-mode verification windows should
+stay short until P4's founder toggle exists).
+**Deviations at close:** interim fonts stand (Anton/Archivo; founder pick still
+open); ticker copy adapted — `"SWAMP MAGAZINE * THE FIRST ISSUE * "` (flag to
+founder); goblin mascot + `landing_hero` + product backgrounds beyond
+star-shorts await founder uploads (P4) — landing hero falls back to the
+star-shorts lifestyle shot, product pages fall back to the ink ground (navy
+Vamp Tee reads dark-on-dark there; resolves with P4 uploads); the mocks' order
+block (NAME/PHONE/VENMO/SUBMIT) deferred to P3 — the plain price holds its
+station; model credits render single-line as stored (mock stacks them; a
+stored newline + one-word CSS change would restore that if the founder wants);
+sold-out sizes carry a screen-reader-only "sold out" (invented copy, a11y —
+flag to founder); shared primitives hardened during integration: marquee seam
+fixed (`whitespace-pre` — the trailing space collapsed at the span boundary)
+and `Reveal` now respects `prefers-reduced-motion`.
 **Scope:** 1) Landing (live mode) per the founder's mock — full-bleed slot image, giant title, mascot art, marquee ticker à la Thames. 2) Catalog grid (Homer-style product-forward). 3) Product page per order-page mocks: lifestyle full-bleed from `image_slots`, product cutout, size row with sold-out states from `product_variants`, model credits, BACK link. 4) Page transitions + scroll behavior (Motion), fonts self-hosted (condensed grotesque + grotesk body — pick with founder). 5) `next/image` wired to Supabase Storage (`remotePatterns`), all images through it.
 **Done when:** gates green; desktop + mobile screenshots of landing/catalog/product against seed data; every image request goes through `next/image` (no raw storage URLs in the DOM).
 **Watch for:** the source screenshots are 3–5 MB PNGs — anything reaching the page must be the resized WebP from seed, or LCP dies; font licensing before self-hosting.

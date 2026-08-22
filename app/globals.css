@@ -5,12 +5,14 @@
    vermillion type over cream / film photo. */
 :root {
   --brand-red: #e0361f;
+  --brand-yellow: #f2e438;
   --cream: #f4eddd;
   --ink: #16110d;
 }
 
 @theme inline {
   --color-brand-red: var(--brand-red);
+  --color-brand-yellow: var(--brand-yellow);
   --color-cream: var(--cream);
   --color-ink: var(--ink);
   --font-display: var(--font-anton);

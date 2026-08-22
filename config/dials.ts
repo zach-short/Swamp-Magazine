@@ -34,4 +34,28 @@ export const dials = {
    * ships off (DESIGN.md par.5).
    */
   stripeTaxEnabled: false,
+
+  /**
+   * Recipients per Resend batch call in the drop announcement (P5). 100 is
+   * Resend's hard ceiling for `batch.send`, not a preference -- lower it only
+   * to make a send gentler on a shared account.
+   */
+  announcementBatchSize: 100,
+
+  /**
+   * Pause between announcement batches, in milliseconds. Resend's default
+   * account limit is 2 requests/second; ~600 ms keeps a long send under it even
+   * when a call returns instantly, at the cost of ~6 s per 1000 subscribers.
+   */
+  announcementBatchPauseMs: 600,
+
+  /**
+   * Canonical public origin (swampmagazine.com, purchased per DESIGN.md par.2).
+   * Deliberately not env-driven: absolute URLs are needed where no request
+   * exists to derive a host from -- unsubscribe links inside email, the
+   * sitemap, OG tags -- and app code never reads `process.env`. DNS is not
+   * pointed here yet (P5 cutover); this is the one line to change if the
+   * founder lands on a different domain.
+   */
+  canonicalSiteUrl: "https://swampmagazine.com",
 } as const;

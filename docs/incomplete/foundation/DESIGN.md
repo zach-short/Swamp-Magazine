@@ -234,6 +234,26 @@ a gate question, unless Zach objects.
   Pro before the first real sale, per §6's hazard. Supabase project
   `rpiitnwalifrsuwreylw`.
 
+## As built (P2, 2026-08-22)
+
+- **Landing and product pages follow the founder's mocks**; the one structural
+  substitution: the mocks' order block (NAME/PHONE/ADDRESS + VENMO/SUBMIT) is
+  P3's embedded-checkout scope per D2, so the plain price stands in the mock's
+  Venmo station until the form mounts there.
+- **Catalog grid (no founder mock)** built to the Homer reference ratified in
+  §1: cutouts floating on flat cream, centered micro-labels (name + whole-dollar
+  price in vermillion), 2-col mobile / 4-col desktop, whole cell links to the
+  product page. The seeded cutout WebPs are genuinely transparent — no matte
+  workarounds needed.
+- **Model credits** are stored and rendered single-line (`MIA (L), DAVID (R)`);
+  the mocks stack them two-line. If the founder wants the stack, store a
+  newline and render `whitespace-pre-line` — content change, not a redesign.
+- **Sold-out sizes**: dimmed + line-through per the visual language, plus a
+  screen-reader-only "sold out" so the state isn't color/decoration-only.
+- **Motion language locked**: one scroll-entrance primitive (`Reveal`, now
+  `prefers-reduced-motion`-aware), a quiet route fade, and the CSS marquee —
+  nothing else moves.
+
 ## 7. Open questions → GATE 1
 
 Asked and answered in chat 2026-08-22; recorded above as D1–D4. Nothing remains open
