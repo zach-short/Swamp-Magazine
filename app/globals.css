@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Brand palette -- hexes live here only, never in .tsx (emails/ excepted, since
+   email clients need inline literals). Sampled from the founder's mockups:
+   vermillion type over cream / film photo. */
+:root {
+  --brand-red: #e0361f;
+  --cream: #f4eddd;
+  --ink: #16110d;
+}
+
+@theme inline {
+  --color-brand-red: var(--brand-red);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --font-display: var(--font-anton);
+  --font-body: var(--font-archivo);
+}
+
+/* CSS-only marquee (Thames reference). Motion (the library) arrives with the
+   real storefront in P2; the coming-soon page stays dependency-free. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 24s linear infinite;
+}
