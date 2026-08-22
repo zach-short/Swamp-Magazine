@@ -50,6 +50,27 @@ export const dials = {
   announcementBatchPauseMs: 600,
 
   /**
+   * Longest edge, in pixels, of an image uploaded through the admin's slot
+   * manager. BD-6's ceiling: everything reaching a page is a resized WebP, and
+   * the founder's masters are 3-5 MB phone photos that would kill LCP raw.
+   * Matches the seed script's constant -- change both together.
+   */
+  slotImageMaxDimensionPx: 2000,
+
+  /**
+   * WebP quality for those uploads. 82 is the seed's setting; below ~75 the
+   * cutouts band visibly against the cream background.
+   */
+  slotImageWebpQuality: 82,
+
+  /**
+   * Largest file the slot uploader accepts, in bytes. Generous enough for a
+   * phone master (3-5 MB) with headroom, small enough that a mis-picked video
+   * fails fast instead of occupying a server action for a minute.
+   */
+  slotImageMaxUploadBytes: 20 * 1024 * 1024,
+
+  /**
    * Canonical public origin (swampmagazine.com, purchased per DESIGN.md par.2).
    * Deliberately not env-driven: absolute URLs are needed where no request
    * exists to derive a host from -- unsubscribe links inside email, the

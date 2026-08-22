@@ -5,17 +5,15 @@ import { usePathname } from "next/navigation";
 
 import { adminRoutes } from "../../lib/admin-routes";
 
-// The seams. `ready: false` items are the route segments Lane H (products,
-// images) and Lane I (orders) still have to build -- they are shown, and they
-// 404, on purpose: the founder sees the shape of the finished admin and nobody
-// has to guess where the next screen mounts. Flipping `ready` to true is the
-// whole handoff.
+// Every section is built as of P4's close. `ready` survives the handoff it was
+// written for: the next section to be sketched ahead of its screen gets a
+// `false` here and shows as SOON rather than 404-ing an unlabelled link.
 const NAV_ITEMS = [
   { href: adminRoutes.dashboard, label: "SITE", ready: true, exact: true },
   { href: adminRoutes.subscribers, label: "SUBSCRIBERS", ready: true, exact: false },
-  { href: adminRoutes.products, label: "PRODUCTS", ready: false, exact: false },
-  { href: adminRoutes.slots, label: "IMAGES", ready: false, exact: false },
-  { href: adminRoutes.orders, label: "ORDERS", ready: false, exact: false },
+  { href: adminRoutes.products, label: "PRODUCTS", ready: true, exact: false },
+  { href: adminRoutes.slots, label: "IMAGES", ready: true, exact: false },
+  { href: adminRoutes.orders, label: "ORDERS", ready: true, exact: false },
 ] as const;
 
 const itemClasses =

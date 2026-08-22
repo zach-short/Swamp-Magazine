@@ -10,8 +10,6 @@ export const adminRoutes = {
   signOut: "/admin/auth/sign-out",
   subscribers: "/admin/subscribers",
   subscribersExport: "/admin/subscribers/export",
-  // Seams. These segments land with Lane H (products, slots) and Lane I
-  // (orders); until then the nav links 404 by design.
   products: "/admin/products",
   slots: "/admin/slots",
   orders: "/admin/orders",
