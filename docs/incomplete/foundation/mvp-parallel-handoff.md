@@ -136,6 +136,13 @@ and the Claude app's network-service processes both show up). Use
 
 ## Lane E — as built (2026-08-22, uncommitted; P3 still OPEN)
 
+> **PROMOTED 2026-08-22.** These notes have been written up into
+> `DESIGN.md` `## As built (P3, 2026-08-22 — code complete, phase still OPEN)`,
+> verified against the source rather than transcribed, and the adversarial
+> review is summarised in `PLAN.md` §P3. **Those two are now the record; this
+> section is the lane's original working note.** Kept unedited — where they
+> differ, the promoted versions carry the citations and win.
+
 Facts that outlived this doc's assumptions. These are notes for the P3 close-out,
 not amendments — DESIGN.md and PLAN.md remain the law.
 

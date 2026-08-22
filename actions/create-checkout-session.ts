@@ -11,9 +11,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 // The order form (Lane F) builds against this signature. Contract is frozen so
 // both lanes can run in parallel: prices and stock come from the DB server-side
-// (never the client), the embedded checkout mounts with the returned
-// clientSecret (D2), and every failure is a literal-union reason the form can
-// render in the mockups' voice.
+// (never the client), the payment station mounts with the returned clientSecret
+// (D2), and every failure is a literal-union reason the form can render in the
+// mockups' voice.
 
 export type DeliveryMethod = "pickup" | "shipping";
 
@@ -138,8 +138,17 @@ export async function createCheckoutSession(
     }
 
     const session = await stripe.checkout.sessions.create({
-      ui_mode: "embedded_page",
+      // "elements" is what older Stripe vocabulary called "custom": the session
+      // is unchanged -- same line items, same completed webhook, same
+      // return_url -- but the card step renders as our own components instead
+      // of Stripe's iframe page. D2 asked for the card step on our domain and
+      // named the Payment Element as one way to get it (DESIGN.md O2-A); this
+      // is that way. "embedded_page" is still the recorded fallback.
+      ui_mode: "elements",
       mode: "payment",
+      // Under "elements" this is where confirm() lands the buyer, so the order
+      // page keeps reading the session id out of the query string exactly as
+      // it did under the iframe.
       return_url: `${await resolveOrigin()}/order?session_id={CHECKOUT_SESSION_ID}`,
       // The link the webhook trusts: written before the session id comes back,
       // so it exists even if storing that id fails.
@@ -157,6 +166,12 @@ export async function createCheckoutSession(
           },
         },
       ],
+      // Naming the type at all turns off Stripe's dashboard-driven automatic
+      // methods, which is the point: the founder's set is card plus the two
+      // wallets, and Apple Pay / Google Pay ARE card under the hood. Anything
+      // switched on in the dashboard later -- Link, Cash App, Klarna, Affirm --
+      // cannot appear on the drop without a code change.
+      payment_method_types: ["card"],
       automatic_tax: { enabled: dials.stripeTaxEnabled },
       ...(draft.delivery === "shipping"
         ? {

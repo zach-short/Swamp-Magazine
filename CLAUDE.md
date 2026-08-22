@@ -12,7 +12,13 @@ App Router + Supabase + Stripe on Vercel. The process docs are the law:
 
 - Use `bun` / `bunx`, never `npm` / `npx` (BD-1).
 - Gates (all must be green before a phase closes):
-  `bun run lint && bunx tsc --noEmit && bun run build && bun run test`
+  `bun run lint && bun run build && bunx tsc --noEmit && bun run test`
+  **`build` must precede `tsc`.** Next only generates the route-type tree
+  (`PageProps`/`LayoutProps`) during `next build`, so on a cold `.next` the
+  reverse order fails tsc on generated types that do not exist yet. Cost a
+  full rebuild at the P4 close; see `RUNTIME-PASS.md` §P4 "Gates at this pass".
+  If route types still look wrong, `rm -rf .next` — a plain rebuild does not
+  rewrite the dev-server-generated `.next/dev/types` tree.
 - `bun run seed` — idempotent catalog seed (needs `.env.local`).
 
 ## Conventions (inherited from ~/Projects/ezhomesteading)

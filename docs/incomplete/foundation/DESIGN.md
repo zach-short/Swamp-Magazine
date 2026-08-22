@@ -254,6 +254,93 @@ a gate question, unless Zach objects.
   `prefers-reduced-motion`-aware), a quiet route fade, and the CSS marquee —
   nothing else moves.
 
+## As built (P3, 2026-08-22 — code complete, phase still OPEN)
+
+Implements D2 (embedded Stripe checkout, on-page, Stripe-only). Recorded now
+rather than at close because P3's close is blocked on two human-keyed items and
+these are decisions, not proofs — a design record ages badly if it waits for a
+test card. **Nothing here claims a proof.** What P3 has actually been observed
+to do is in `RUNTIME-PASS.md` §P3, where every entry currently reads NOT RUN.
+
+- **D2 held: embedded, not the hosted redirect.** O2-B was the recorded fallback
+  "if the embedded flow fights us"; it did not, so the fallback stays unused and
+  D2 stands as ratified.
+- **The `ui_mode` literal is `"embedded_page"`, not `"embedded"`.** `stripe@22.5.0`
+  pins API version `2026-07-29.dahlia`, whose union is
+  `'elements' | 'embedded_page' | 'form' | 'hosted_page'`
+  (`actions/create-checkout-session.ts:141`). A vocabulary change inside Stripe,
+  not a change to D2 — `@stripe/react-stripe-js@6`'s `EmbeddedCheckoutProvider`
+  calls `createEmbeddedCheckoutPage` internally and pairs with it correctly. The
+  same version moved the shipping address to
+  `session.collected_information.shipping_details`; the old top-level field is
+  gone.
+- **The return flow is Stripe's default redirect**, not `redirect_on_completion:
+  "never"` — `return_url` is `/order?session_id={CHECKOUT_SESSION_ID}`
+  (`create-checkout-session.ts:143`), so the form needs no `onComplete` handler
+  and the order-confirmed page does its own session-status check.
+- **The mode gate is repeated on the server action.** A server action is a
+  public endpoint reachable by action id, so the product page's
+  `mode !== "live"` redirect never covered `createCheckoutSession`. Products
+  default to `active`, so without this, inventory staged during `coming_soon`
+  was purchasable while the storefront said the drop had not opened
+  (`create-checkout-session.ts:62`). D1's "one codebase" convenience hides this:
+  the page and the action look like one thing and are two entry points.
+- **Idempotency is two guards, not one.** The `stripe_events` primary key stops
+  a replayed event id; a `pending → paid` compare-and-swap on the order
+  (`20260823000000_checkout_money_path.sql:119`) stops a *different* event id
+  for the same order — a completion followed by an async success. Either alone
+  leaks a double decrement.
+- **Oversell clamps rather than aborts.** The decrement carries an
+  `inventory_count >= quantity` predicate (migration `:172`), so a lost race
+  leaves the order `paid` — the buyer really did pay — and the webhook refunds
+  under idempotency key `oversold-refund-<orderId>` per `dials.oversellPolicy`.
+  The alternative, rolling back, would have left a charged buyer with no order.
+- **The RPC revokes Postgres's default `EXECUTE` to PUBLIC** (migration `:195`).
+  Without it PostgREST exposes an anon-callable endpoint that marks orders paid.
+  Not theoretical: P1's `public.set_updated_at` shipped with `proacl = null` on
+  the live project and really is anon-callable.
+- **`stripe_events` deliberately has no foreign key to `orders`.** It is an
+  audit trail, and the moment it matters most is when the referenced order is
+  missing — an RI trigger would abort the transaction and leave no row at all.
+- **Two columns exist only to make an absence checkable.**
+  `orders.expected_amount_cents` is written at creation and the RPC sets
+  `stripe_events.amount_mismatch` when Stripe charged something else. No exploit
+  was found (line items are server-built, no promo codes, tax off); the point is
+  that nothing previously recorded what an order *should* cost.
+- **`orders.confirmation_sent_at` is a claim, not a log line.** A conditional
+  update takes it before sending (`app/api/stripe/webhook/route.ts:155`) so a
+  redelivery cannot mail twice, and a failed send releases it (`:231`) so
+  replaying the event delivers. Known limitation: a crash between the paid
+  commit and the send means no email is ever sent — Stripe's own receipt partly
+  covers it, and the admin order list is the backstop.
+- **The standalone price station came out of the product page.** P2 left the
+  plain price standing in the mock's Venmo station; the form's ledger replaced
+  it, so the mock's "one number" reading survives. The ledger's `border-t-2`
+  (`checkout-form.tsx:301`) is the first rule line inside the product
+  composition, read as echoing the order mockups' field underlines — P2 reviewed
+  and accepted it.
+- **Un-keyed state still shows the price and the sizes.** With Stripe
+  unconfigured the form renders the bare price and a read-only size row
+  (strike-through and the `sr-only` "sold out" preserved) above "ORDERS OPEN
+  SOON" — otherwise the un-keyed branch would have stripped the size row off the
+  page entirely, a regression against what P2 shipped. This is the state
+  production renders today.
+- **Selected size and delivery render `brand-yellow`**, extending P2's ratified
+  reading that the mock's yellow is the active state; SUBMIT is plain red
+  display type with no box. Both are the founder's to confirm.
+
+**Landmine documented, not fixed — the cart seam must clear it.** With several
+items per order, the ones that succeed stay decremented while the caller refunds
+the whole payment intent. Unreachable under BD-4 (one item per order) and called
+out in the migration. Refund per line, or raise so the transaction rolls back,
+before a cart ships.
+
+**Accepted and still open:** `createCheckoutSession` is unauthenticated and
+unthrottled, so a hyped drop can bloat `orders` with abandoned pendings and burn
+Stripe rate limits; no sweeper exists (`admin-completion` O-E answers this).
+`resolveOrigin()` trusts the `host` header, though no victim-facing exploit was
+constructible.
+
 ## As built (P4, 2026-08-22)
 
 Implements D3 (the full custom admin). All six of D3's items shipped; what
@@ -289,6 +376,113 @@ follows is where the build differs from what D3 and `PLAN.md` §P4 described.
 - **The allowlist is `ADMIN_EMAILS` + a redeploy.** Correct at two people, and
   D3 said two. The founder cannot add an admin himself; that is the accepted
   trade, not an oversight.
+
+## As built (checkout re-skin, 2026-08-22)
+
+**D2 stands; only its UI mode changed.** D2 ratified "embedded Stripe, on-page,
+Stripe-only", and O2-A's own wording named "Stripe's embedded checkout/**Payment
+Element** on our domain" as the way to get it. The card step moved from
+`ui_mode: "embedded_page"` (Stripe's page inside an iframe) to
+`ui_mode: "elements"` — the same Checkout Session, the same
+`checkout.session.completed`, the same `return_url`, rendered as our own
+components. P3's record already called ui-mode selection a build-level call
+rather than a design change; this is that call being made a second time, in the
+direction D2 pointed. `"embedded_page"` remains the recorded fallback alongside
+O2-B.
+
+- **What is ours now and what is still Stripe's.** Ours: the ledger, the labels,
+  the NAME field, the payment chooser, SUBMIT, every colour and face. Stripe's:
+  the inputs that touch a card number, an email, or an address — which is what
+  keeps this a SAQ-A integration rather than one that handles PANs. The look of
+  those comes from `features/checkout/lib/stripe-appearance.ts`, which resolves
+  the palette off `:root` at runtime instead of restating the hexes, so
+  `app/globals.css` stays the only place a brand colour is written down.
+- **The founder's mockups are the spec the re-skin was measured against** —
+  NAME / PHONE / ADDRESS as a label over a ruled blank, red on the photo, no
+  boxes and no corners. Nearly every appearance rule is subtractive for that
+  reason: Stripe's default is a bordered, rounded, shadowed card.
+- **Anton and Archivo reach the iframes over Google Fonts**, not through
+  `next/font`. Self-hosted faces live on our origin and the Elements frames are
+  cross-origin, so a stylesheet URL is the only supported way in. It is the one
+  third-party request the card step adds.
+- **SUBMIT moved to the act that actually submits.** It sat on the size step
+  while the terminal press lived inside Stripe's iframe; the size step now says
+  NEXT (INVENTED) and SUBMIT sits on the confirm. Closer to what the mockup
+  means by the word. Founder's to confirm, with the rest of the INVENTED lines
+  in `order-copy.ts`.
+- **The payment set is card, Apple Pay, and Google Pay — locked server-side.**
+  `payment_method_types: ["card"]` on the session turns off Stripe's
+  dashboard-driven automatic methods, so Link, Cash App, Klarna and anything
+  switched on later cannot appear on a drop without a code change. The two
+  wallets ride on card. Zach's call, 2026-08-22.
+- **The chooser is ours; the wallet buttons are not.** Apple and Google both
+  require their own marks, so the Express Checkout Element draws those and a
+  CARD button in the site's own display face sits under them. Choosing CARD
+  hides the wallets and reveals the fields, with CHANGE PAYMENT METHOD to go
+  back; a wallet instead opens its own sheet, and dismissing that returns every
+  option. On a browser offering neither wallet the chooser never appears at all.
+- **The buyer's name is collected by us, not by Stripe.** Under `elements` the
+  card block asks only for what the network needs — number, expiry, CVC,
+  country, ZIP — so `customer_details.name` would land null, and both the
+  confirmation email's greeting and the founder's pickup queue read off it.
+  `PaymentElement`'s `fields.billingDetails` does not override this under
+  Checkout Sessions (tried, ignored). So NAME is our own input, merged onto
+  whatever the card block already put on the session at confirm rather than
+  replacing it, and skipped entirely on the wallet path where the sheet supplies
+  the payer's own identity.
+- **The total shown at confirm is Stripe's, not our arithmetic.** `confirm()`
+  throws unless the page reads the session's own total; the ledger reads the
+  minor-unit form so the house formatter can still say "$25" where Stripe says
+  "$25.00". A figure Stripe adds later cannot now be charged without appearing
+  on screen.
+- **CHANGE SIZE was added because the one-way transition made a mis-picked size
+  a page reload.** It only drops the client secret, so it leaves the same
+  abandoned pending order that closing the tab would — no better and no worse
+  than the problem `admin-completion` O-E already exists for.
+
+**Not proven, and not claimed.** No payment has been taken through this form.
+The browser pane in the session that built it could not deliver input to a
+cross-origin iframe, so a card was never typed. What was observed: the session
+is created with `ui_mode: "elements"` and returns a client secret against the
+live Stripe test key, the station mounts, the fields render in the founder's
+language, and the console is clean. R1 in `RUNTIME-PASS.md` proved the money
+path through the *iframe*; it does not transfer, and P3's R1 wants re-running
+against this form.
+
+**Account facts, read off the test key 2026-08-22.** Apple Pay and Google Pay
+are both `on` in the default payment method configuration (Google Pay was off;
+Zach turned it on during this work).
+
+**Domains are registered in test mode.** `www.swampmagazine.com` and
+`swampmagazine.com` were registered this session via `payment_method_domains`
+and both read `apple_pay: active` / `google_pay: active` on a fresh `validate`.
+Two things about that are worth writing down because they contradict what the
+older Apple Pay guides say:
+
+- **No association file was needed.** Nothing is served at
+  `/.well-known/apple-developer-merchantid-domain-association` — it still 404s —
+  and Apple Pay verified anyway. The modern `payment_method_domains` flow does
+  its own verification; the file-hosting step in the legacy `apple_pay/domains`
+  guides no longer applies. `public/.well-known/` was therefore not created.
+- **The legacy endpoint is not the place to check.** `applePayDomains.list()`
+  returns `[]` even now that both domains are active. Anything auditing wallet
+  readiness has to read `paymentMethodDomains`, or it will conclude the site is
+  unregistered when it is not.
+
+The apex 308-redirects to `www`, so `www.swampmagazine.com` is the origin
+Stripe.js actually runs on; the apex is registered as well, which costs nothing
+and covers a future change of canonical host. (Unrelated but adjacent:
+`dials.canonicalSiteUrl` still names the apex while production serves `www` —
+worth reconciling before P5's email and sitemap links matter.)
+
+**Live mode is not registered and cannot be.** Registration is per mode, and a
+live-mode registration cascades down to sandboxes rather than up from them, so
+this has to be redone with a live key before launch. It is blocked meanwhile:
+`details_submitted` is `false` on the account, so live charges are impossible
+until the founder completes Stripe onboarding. That is the launch blocker, and
+it is independent of any of this work. Production runs test keys today (P3's R1
+was a test-card purchase against it), so the registration above is the one that
+governs the live site as it currently stands.
 
 ## 7. Open questions → GATE 1
 

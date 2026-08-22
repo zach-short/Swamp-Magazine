@@ -29,10 +29,41 @@ export const orderErrorLines: Record<OrderErrorReason, string> = {
 };
 
 export const orderCopy = {
-  /** LIFTED -- the mockups' last line, verbatim. */
+  /** LIFTED -- the mockups' last line, verbatim. It sits on the card step now
+   * rather than on the size step: with the fields on our own page, SUBMIT is
+   * finally the act that actually sends the order, which is what the mockup
+   * means by it. Founder's to confirm. */
   submit: "SUBMIT",
+  /** INVENTED -- the mockups have no two-step order, so nothing was lifted for
+   * the word that carries a buyer from the size row to the card fields. Kept
+   * deliberately non-terminal so it cannot be misread as SUBMIT. */
+  next: "NEXT",
   /** LIFTED from the P1 subscribe form's pending state, for one pending voice. */
   submitPending: "SENDING...",
+  /** INVENTED -- the way back to the size row from the card step. */
+  changeSize: "CHANGE SIZE",
+  /** INVENTED -- heads the payment chooser. The mockups pay by Venmo and so
+   * never needed to name the act. */
+  payWith: "PAY WITH",
+  /** INVENTED -- the chooser's third option. Apple Pay and Google Pay draw
+   * their own marks and cannot be relabelled; this is the only one we name. */
+  payWithCard: "CARD",
+  /** INVENTED -- reopens the chooser after a method has been picked. */
+  changePayment: "CHANGE PAYMENT METHOD",
+  /** LIFTED -- the mockups' first field, verbatim. */
+  name: "NAME",
+  /** INVENTED -- shown when SUBMIT is pressed with the name still blank. */
+  nameMissing: "WE NEED A NAME FOR THE ORDER",
+  /** INVENTED -- the mockups collect NAME/PHONE/ADDRESS but never an email;
+   * Stripe needs one to send the receipt. */
+  email: "EMAIL",
+  /** INVENTED -- shown while Stripe.js is still building the card fields. */
+  paymentLoading: "ONE SECOND...",
+  /** INVENTED -- last resort when a confirm fails with nothing quotable. Stripe's
+   * own message is preferred whenever there is one; see `paymentErrorLine`. */
+  paymentFailed: "THAT PAYMENT DIDN'T GO THROUGH. TRY AGAIN",
+  /** INVENTED -- the card step could not be built at all. */
+  paymentUnavailable: "CHECKOUT ISN'T ANSWERING. TRY AGAIN",
   /** INVENTED -- the nudge the static mockups had no need for. */
   pickSize: "PICK A SIZE",
   /** INVENTED -- when every size is gone. */
@@ -54,4 +85,15 @@ export const orderCopy = {
 export function formatUsd(cents: number): string {
   const dollars = cents / 100;
   return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+}
+
+/**
+ * Stripe writes genuinely useful failures ("Your card number is incomplete"),
+ * and throwing them away for one house-voice line would leave a buyer guessing
+ * which field is wrong. Uppercasing keeps the register without losing the
+ * diagnosis; only a blank message falls back to our own words.
+ */
+export function paymentErrorLine(message: string | undefined | null): string {
+  const trimmed = message?.trim();
+  return trimmed ? trimmed.toUpperCase() : orderCopy.paymentFailed;
 }

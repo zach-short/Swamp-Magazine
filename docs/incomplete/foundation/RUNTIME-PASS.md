@@ -23,6 +23,202 @@ the record for those phases.
 
 ---
 
+# P3 — Checkout & orders (money path)
+
+**Opened 2026-08-22 against commit `fad6f16`, Supabase project
+`rpiitnwalifrsuwreylw`, production `www.swampmagazine.com`.** Written in two
+sittings on the same day: first with all four proofs recorded as NOT RUN and
+their blockers verified, then updated in place as the blockers cleared and R1
+actually ran. The NOT RUN text for R2–R4 is not leftover — it is current.
+
+**The blockers named in the morning are discharged.** Both were human-keyed and
+both were done by Zach this session:
+
+| Blocker | Morning state | Now |
+|---|---|---|
+| P3 migration on the live DB | not applied | **APPLIED.** `stripe_events` and `apply_checkout_completion` exist; `orders` carries `expected_amount_cents` and `confirmation_sent_at`. Grants verified on the live project: `has_function_privilege` is **false for `anon`**, true for `service_role` — the `REVOKE` took, so the RPC that marks orders paid is not an anon-callable PostgREST endpoint |
+| Stripe keys | absent everywhere | present in `.env.local` and Vercel Production |
+
+**A third blocker surfaced that no document predicted, and it cost the live
+site.** Stripe's two keys are independently `.optional()` at boot, so an
+environment can hold one without the other. Vercel was given
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` but **not
+`STRIPE_SECRET_KEY`**, which put production in a state the design never
+contemplated: the client had a key, so it rendered the real form with a live
+SUBMIT button, and the server had none, so `createCheckoutSession` refused every
+press with `stripe-unconfigured`. The graceful branch was built for "no Stripe at
+all", not "half of Stripe", and half of Stripe reads to a buyer as a dead button.
+Found by Zach hitting it on the live site, diagnosed from `vercel env ls`, fixed
+by adding the key and redeploying. **This wants a guard** — the two keys should
+be asserted present together, or absent together, rather than each being
+independently optional.
+
+The database is shared with production, and unlike every prior phase, the site
+was **`live` and public** throughout this pass.
+
+---
+
+## R1 — A test-card purchase decrements exactly 1 — **PASS**
+
+*OBSERVED BY ZACH (he made the purchase, on production); every figure below
+VERIFIED HERE by live query.* This is the first proof in the project where the
+money path moved real state.
+
+Order `5bb64175-77b1-40fb-905e-058a2b03da6c`, created 21:22:49Z, settled
+21:23:26Z — 37 seconds, buyer-paced:
+
+| Check | Reading |
+|---|---|
+| status | `paid` |
+| line items | College Arch XS ×1, pickup |
+| `amount_total_cents` vs `expected_amount_cents` | **2500 vs 2500** |
+| `stripe_events.amount_mismatch` | `false` |
+| `stripe_events` rows for the order | **exactly 1**, outcome `applied` |
+| College Arch XS inventory | **12 → 11** |
+| buyer identity | captured by Stripe (`Zachary Short`, `shortzach396@gmail.com`) — the action never collects it |
+
+**Four things this proves that no test could.** The migration's new columns work
+against the live schema (`expected_amount_cents` was written at creation on the
+very first order). The quoted price and the charged price agree, and the
+mismatch flag that exists only to make that checkable read false. The RPC
+committed `paid` and the decrement together. And the decrement was **one**.
+
+**A control fell out of it for free.** Two abandoned `pending` orders exist —
+`10903893…` (Star Shorts S, mine at 21:13) and `a90e677c…` (College Arch XS,
+21:18) — and star-shorts S still reads 12. So `pending` demonstrably does not
+decrement; only the paid transition does. That was assumed, and is now observed.
+
+Those two rows are also the first real instances of the abandoned-pending
+problem `admin-completion` §3 O-E was written for. They are not cleanup debt to
+hide — leave them as the fixture that feature will be built against.
+
+## R2 — A replayed webhook event does not decrement again — **NOT RUN (newly diagnosed blocker)**
+
+Not blocked by what `PLAN.md` predicted. The keys are in place and the money
+path works; the blocker is that **the Stripe CLI is authenticated to the wrong
+Stripe account.**
+
+| | Account | Evidence |
+|---|---|---|
+| Stripe CLI / `stripe listen` | `acct_1TttU6HtlsVEnwYu` "New business sandbox" | `stripe config --list` |
+| `STRIPE_SECRET_KEY` in `.env.local` | `acct_1U7LkQJw1iJWNigh` **"SWAMP MAGAZINE"** | `GET /v1/account` |
+| Vercel Production | the SWAMP account | the paid order exists |
+
+The purchase event id, `evt_1U7MNt**Jw1iJWNigh**xKTwU2AM`, carries the SWAMP
+account id; `stripe events resend` answered `No such notification` because the
+CLI was asking a different account. The only webhook endpoint the CLI can list
+belongs to that other account and points at a Northflank backend.
+
+**Consequences, all verified rather than supposed:**
+1. `stripe listen` has been forwarding the *other* account's events to
+   `localhost:3000/api/stripe/webhook` this whole time. Swamp events never
+   arrived — corroborated by the dev server having logged nothing during a
+   purchase that demonstrably succeeded on production.
+2. The `whsec_` in `.env.local` is from that wrong account's listen session, so
+   local signature verification cannot succeed against a real swamp event.
+3. Production was never affected. Its keys and endpoint are correct.
+
+**Unblock:** `stripe login` onto SWAMP MAGAZINE, take the fresh `whsec_` into
+`.env.local`, then resend the event. Worth checking the swamp endpoint's pinned
+API version at the same time — the other account's endpoint sits on
+`2026-06-24.dahlia`, an older dahlia than the `2026-07-29.dahlia` the installed
+SDK describes, and `collected_information.shipping_details` is the field that
+silently goes null across that boundary.
+
+**Partly answered anyway, by accident.** Exactly one `stripe_events` row exists
+for an event Stripe delivers at least once and retried against a production
+endpoint that was 500ing for part of the window. The primary-key guard held.
+That is not the deliberate replay R2 asks for and is not recorded as one.
+
+## R3 — A 0-stock size cannot create a session — **HALF PROVEN**
+
+**The storefront half — VERIFIED HERE.** `/product/vamp-tee`, whose five sizes
+all read `inventory_count = 0`, renders every size struck through with an
+`sr-only` "sold out", and **renders no submit control at all** — a `<p>SOLD
+OUT</p>` stands where SUBMIT would be. There is no client path to a sold-out
+purchase. `/product/star-shorts` on the same load renders its three sizes
+normally, so this is stock-driven, not a broken page.
+
+**The server half — NOT RUN.** The guard in `createCheckoutSession` has not been
+made to fire. Producing a request that claims a sold-out size needs either a
+zero written into production inventory or a direct POST to the action by its id;
+both were attempted this session and both were refused by tooling policy.
+Nothing is claimed for it. The intended run is the real race: select a size,
+zero it from `/admin/products`, submit, and watch the server refuse what the
+client still believes is in stock — which also exercises the client's
+`refusedSizes` recovery path.
+
+Pinned meanwhile by vitest, which is a different kind of assurance.
+
+## R4 — A pickup order's email says where to pick up — **NOT RUN**
+
+Still blocked on the founder's copy, and R1 added evidence about the mechanism.
+
+The paid order's `confirmation_sent_at` reads **null**. The webhook claims that
+column *before* sending and releases it on failure, so null means either the
+send failed and released, or the claim never ran. The buyer address was
+`shortzach396@gmail.com`, and the Resend sandbox delivers only to the account
+owner `zach.short@fantomworks.com`, which makes a failed-and-released send the
+strong reading — the same 403 P1 recorded. **Marked as inference, not
+observation:** the production log would settle it and this session could not
+read it (the runtime-logs API returned 403 for this token).
+
+Either way R4's substance is untouched: `emails/order-confirmation.tsx` still
+promises a follow-up email rather than naming a pickup spot, because where and
+when campus pickup happens is Lalo's to state. A green send of invented copy
+would satisfy the mechanism and fail the proof.
+
+---
+
+## Other state observed
+
+**`vamp-tee` is deliberately sold out.** All five sizes read
+`inventory_count = 0`. Confirmed as intended by Zach 2026-08-22 in chat —
+**this is not drift and must not be "restored."** Recorded because the P4
+entries state 204 units and the next audit comparing the two would otherwise
+file a regression. Total units now read **143**: 204 minus the 60 of vamp-tee,
+minus the one College Arch XS that genuinely sold in R1.
+
+**The site was live and public for this entire pass.** `site_settings.mode` read
+`live` with `drop_at` null when this session began — flipped by Zach while
+wiring the webhook, not by any agent — and stayed live throughout. Unlike P1
+(49 s), P2 (~15 s) and P4 (~50 min), this was not a bounded verification window,
+and for part of it the storefront presented an armed SUBMIT button that could not
+transact (see the opening). Closing it is Zach's call and had not been made when
+this was written.
+
+**The embedded form's placement is now a live design question.** Seeing the real
+Stripe form mounted on the product page, Zach flagged that he is "not crazy about
+the form to purchase being directly in that page". This is `DESIGN.md` D2
+territory, and worth knowing before it turns into a debate: **D2 already
+pre-authorises the change.** O2-B, hosted Stripe Checkout by redirect, is the
+recorded fallback "if the embedded flow fights us", and `PLAN.md` §P3's watch-for
+makes switching to it a build-level call rather than a design amendment — it only
+has to be recorded as an `As built:`. No ratification is needed, no gate has to
+reopen. Logged here as an open question, not a decision.
+
+**Two abandoned `pending` orders exist** and are deliberately not cleaned up.
+See R1.
+
+## Gates at this point
+
+Re-run in full from this tree at commit `fad6f16`, in the corrected order
+(`build` before `tsc`, per the note at the end of the P4 section):
+
+```
+bun run lint && bun run build && bunx tsc --noEmit && bun run test
+```
+
+**All green.** Lint 0 warnings; build ✓; tsc exit 0; vitest **99/99 across 15
+files**. Unchanged from the P4 close-out run, as expected — the only commit since
+was the BIMI vector mark.
+
+**Stated once more because this section is where it matters most:** those gates
+say the money path compiles and its model is consistent. They say nothing about
+whether a card charges, a webhook verifies, or stock moves. P3 stays OPEN.
+
+---
+
 # P4 — Admin
 
 **Run 2026-08-22 against commit `f44fd68`, Supabase project

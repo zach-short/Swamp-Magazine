@@ -1,10 +1,5 @@
 "use client";
 
-import {
-  EmbeddedCheckout,
-  EmbeddedCheckoutProvider,
-} from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import { useState, useTransition, type FormEvent } from "react";
 
 import {
@@ -12,15 +7,17 @@ import {
   type DeliveryMethod,
 } from "@/actions/create-checkout-session";
 import { dials } from "@/config/dials";
-import { clientEnv } from "@/lib/env/client";
 import { cn } from "@/lib/utils";
 
+import { OrderLedger } from "../order-ledger/order-ledger";
+import { PaymentStation } from "../payment-station/payment-station";
 import {
   formatUsd,
   orderCopy,
   orderErrorLines,
   type OrderErrorReason,
 } from "../../lib/order-copy";
+import { stripePromise } from "../../lib/stripe-client";
 
 /** Structurally the storefront's `ProductVariant`, declared here so the order
  * form doesn't depend on the catalog lane's file. */
@@ -32,14 +29,6 @@ export type CheckoutFormProps = {
   priceCents: number;
   variants: CheckoutVariant[];
 };
-
-// Stripe.js gets injected once per page load. Calling loadStripe inside the
-// component would re-inject the script on every render and take the mounted
-// checkout iframe down with it. A missing publishable key is a deploy state,
-// not a crash -- the form renders its quiet closed notice instead.
-const stripePromise = clientEnv.stripePublishableKey
-  ? loadStripe(clientEnv.stripePublishableKey)
-  : null;
 
 const deliveryOptions: { value: DeliveryMethod; label: string; price: string }[] =
   [
@@ -101,6 +90,16 @@ export function CheckoutForm({
     });
   }
 
+  // Dropping the secret is all it takes to get back to the size row: nothing is
+  // charged until confirm, so the abandoned session and its pending order are
+  // exactly what closing the tab would have left behind. The alternative -- no
+  // way back at all -- made a mis-picked size a page reload.
+  function handleChangeSize() {
+    setClientSecret(null);
+    setOrderId(null);
+    setErrorReason(null);
+  }
+
   if (!stripePromise || errorReason === "stripe-unconfigured") {
     return (
       <div className="flex w-full flex-col gap-5 text-center font-body text-brand-red">
@@ -135,31 +134,18 @@ export function CheckoutForm({
 
   if (clientSecret) {
     return (
-      // The order id rides the DOM so a P3 proof can tie what the buyer sees to
-      // the row in `orders` without digging through logs.
-      <section
-        data-order-id={orderId}
-        className="flex w-full flex-col gap-4 text-brand-red"
-      >
-        <OrderLedger
-          name={name}
-          priceCents={priceCents}
-          deliveryLabel={deliveryLabel}
-          shippingCents={shippingCents}
-          totalCents={totalCents}
-          size={size}
-        />
-        {/* Stripe's iframe paints its own light ground; the cream frame keeps it
-            from reading as a hole punched in the founder's photo. */}
-        <div className="bg-cream p-2">
-          <EmbeddedCheckoutProvider
-            stripe={stripePromise}
-            options={{ clientSecret }}
-          >
-            <EmbeddedCheckout />
-          </EmbeddedCheckoutProvider>
-        </div>
-      </section>
+      <PaymentStation
+        clientSecret={clientSecret}
+        orderId={orderId}
+        name={name}
+        size={size}
+        priceCents={priceCents}
+        delivery={delivery}
+        deliveryLabel={deliveryLabel}
+        shippingCents={shippingCents}
+        totalCents={totalCents}
+        onChangeSize={handleChangeSize}
+      />
     );
   }
 
@@ -244,8 +230,8 @@ export function CheckoutForm({
         priceCents={priceCents}
         deliveryLabel={deliveryLabel}
         shippingCents={shippingCents}
-        totalCents={totalCents}
         size={size}
+        totalDisplay={formatUsd(totalCents)}
       />
 
       {errorLine ? (
@@ -270,50 +256,10 @@ export function CheckoutForm({
             disabled={isPending || !size}
             className="self-center font-display text-4xl tracking-wide hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 disabled:cursor-not-allowed disabled:text-brand-red disabled:opacity-40"
           >
-            {isPending ? orderCopy.submitPending : orderCopy.submit}
+            {isPending ? orderCopy.submitPending : orderCopy.next}
           </button>
         </>
       )}
     </form>
-  );
-}
-
-type OrderLedgerProps = {
-  name: string;
-  priceCents: number;
-  deliveryLabel: string;
-  shippingCents: number;
-  totalCents: number;
-  size: string | null;
-};
-
-// The mockups quote one number ("PLEASE VENMO $20"). Shipping (D2) makes that a
-// sum, and nobody should learn the real charge inside Stripe's iframe.
-function OrderLedger({
-  name,
-  priceCents,
-  deliveryLabel,
-  shippingCents,
-  totalCents,
-  size,
-}: OrderLedgerProps) {
-  return (
-    <dl className="flex flex-col gap-1 border-t-2 border-current pt-3 text-sm tracking-widest">
-      <div className="flex items-baseline justify-between gap-4">
-        <dt>
-          {name.toUpperCase()}
-          {size ? ` ${size}` : ""}
-        </dt>
-        <dd>{formatUsd(priceCents)}</dd>
-      </div>
-      <div className="flex items-baseline justify-between gap-4">
-        <dt>{deliveryLabel}</dt>
-        <dd>{shippingCents > 0 ? formatUsd(shippingCents) : orderCopy.free}</dd>
-      </div>
-      <div className="flex items-baseline justify-between gap-4 font-display text-2xl tracking-wide">
-        <dt>{orderCopy.total}</dt>
-        <dd>{formatUsd(totalCents)}</dd>
-      </div>
-    </dl>
   );
 }

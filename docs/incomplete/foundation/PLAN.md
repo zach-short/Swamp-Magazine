@@ -111,6 +111,88 @@ and `Reveal` now respects `prefers-reduced-motion`.
 **Watch for:** the source screenshots are 3–5 MB PNGs — anything reaching the page must be the resized WebP from seed, or LCP dies; font licensing before self-hosting.
 
 ### P3 — Checkout & orders (money path)
+**CODE COMPLETE 2026-08-22, commit `82c01d9` (money path + P3 integration, built
+by Lane E/F of the parallel wave). PHASE OPEN — P3 is NOT CLOSED.** Every item
+of the scope below is built, integrated and adversarially reviewed. **One of the
+four "Done when" proofs has now run and passed (R1); the other three have not.**
+A green gate is not a runtime pass and this header does not merge the two claims.
+See `RUNTIME-PASS.md` §P3 for what was observed, and `DESIGN.md`
+`## As built (P3, …)` for the decisions.
+
+**Gates:** green, re-run from this tree 2026-08-22 at commit `fad6f16` —
+`bun run lint && bun run build && bunx tsc --noEmit && bun run test`: lint 0
+warnings, build ✓, tsc exit 0, vitest **99/99 across 15 files**, of which the
+money path owns four (`lib/checkout/{order-draft,checkout-completion,webhook-signature}.test.ts`,
+`features/checkout/lib/order-copy.test.ts`).
+
+**Progress 2026-08-22 (second sitting): both original blockers discharged, R1
+PASSED, phase still OPEN.** The migration was hand-applied in Studio and the
+Stripe test keys added; a real purchase then ran on production and decremented
+exactly one unit. Full detail in `RUNTIME-PASS.md` §P3 — the short form:
+
+| Proof | State |
+|---|---|
+| R1 test-card purchase decrements exactly 1 | **PASS.** Order `5bb64175…` paid, `amount_total == expected == 2500`, one `stripe_events` row (`applied`), College Arch XS 12 → 11 |
+| R2 replayed event does not decrement again | **NOT RUN** — the Stripe CLI is logged into the wrong Stripe account (see below) |
+| R3 a 0-stock size cannot create a session | **HALF.** Storefront half verified; the server guard has not been made to fire |
+| R4 pickup email says where to pick up | **NOT RUN** — still the founder's copy, and the paid order's `confirmation_sent_at` is null |
+
+**Two defects this sitting found, neither visible to a gate:**
+
+1. **Half-armed Stripe breaks the storefront silently.** `STRIPE_SECRET_KEY` and
+   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` are independently `.optional()`, so
+   Vercel held the publishable key and the webhook secret but not the secret key.
+   The client rendered a live SUBMIT button; the server refused every press with
+   `stripe-unconfigured`. To a buyer that is a dead button, not a "not open yet"
+   notice — the graceful branch was designed for no Stripe at all, not half of
+   it. Fixed by adding the key and redeploying. **Owed: a guard asserting the two
+   keys are present together.**
+2. **The Stripe CLI was authenticated to a different Stripe account**
+   (`acct_1TttU6…` "New business sandbox") than the project's keys
+   (`acct_1U7LkQ…` "SWAMP MAGAZINE"), so `stripe listen` spent the session
+   forwarding an unrelated account's events to localhost and the `whsec_` in
+   `.env.local` cannot verify a real swamp event. Production was never affected.
+   **Owed: `stripe login` onto the SWAMP account, a fresh `whsec_`, and a check
+   that the registered endpoint is pinned to `2026-07-29.dahlia` — the SDK's
+   version, and the boundary at which `collected_information.shipping_details`
+   silently becomes null.**
+
+**Also open, and cheap because it is already permitted:** seeing the real form
+mounted, Zach flagged that he dislikes the purchase form sitting directly on the
+product page. D2 pre-authorises the alternative — O2-B (hosted Stripe Checkout by
+redirect) is the recorded fallback and switching is a build-level call requiring
+only an `As built:` note, not a design amendment.
+
+**Adversarial review — done, and it found things.** PLAN asked for one before P3
+closes. Run against a throwaway Postgres with both migrations applied and the
+races executed as genuinely overlapping transactions, not reasoned about on
+paper. Survived unchanged: same event id replayed, two different event ids on
+one order, the same event id in two concurrent transactions, two orders racing
+the last unit — one decrement in every case; grants verified with
+`has_function_privilege` (false for `anon` and `authenticated`, true for
+`service_role`). **Nine defects found and fixed**, the most expensive being an
+oversold refund that was single-shot and swallowed — a failed refund was
+unreachable by any automatic path, including a manual Dashboard resend, leaving
+the buyer charged for a thing that does not exist. Also fixed: `order-not-found`
+was dead code behind an FK's RI trigger; **`createCheckoutSession` had no
+site-mode gate**, so staged inventory was purchasable during `coming_soon`;
+`unlinked`/`order-not-found` answered 200 and retired unattachable payments into
+the logs; a zero-line-item order reported `applied`; an unvalidated RPC outcome
+fell through as `undefined`; nothing recorded what an order should cost; the
+confirmation email had exactly one attempt; and the test model had diverged from
+the SQL such that it structurally could not express the refund defect. Full
+detail in `mvp-parallel-handoff.md` §"Adversarial review of the money path".
+
+**Process deviation, recorded rather than smoothed over: P4 closed ahead of P3.**
+`mvp-parallel-handoff.md` sets the rule — builds run in parallel, phases still
+CLOSE in order (P2 → P3 → P4 → P5). P4 was closed on W1–W6 on 2026-08-22 while
+P3 sat unclosed and undocumented: no header here, no `As built` in `DESIGN.md`,
+no `RUNTIME-PASS.md` entries. The cause is visible in P4's own header — the same
+two blockers that stall P3 also stall P4's W7, so the phase that *could* close
+did, and the phase that could not was passed over silently. The out-of-order
+close is not being reversed; it is named here so the sequence rule is not
+quietly assumed to have held.
+
 **Scope:** 1) On-page order form: size + delivery choice (campus pickup free / flat-rate ship, dial $5) styled to the mocks; buyer name/contact collected by Stripe. 2) Server action creates the order (`pending`) + Stripe embedded Checkout session — price and stock read from DB, never from the client. 3) Webhook `checkout.session.completed`: signature-verified on the raw body, idempotent via stored event ids, transactionally marks order `paid` + decrements `product_variants.inventory_count`. 4) Sold-out guard at session creation; oversell race resolves per dial (refund + apologize). 5) Order-confirmed page + Resend order email with pickup instructions or shipping note. 6) vitest: idempotent replay, decrement-once, sold-out rejection (BD-5).
 **Done when:** gates + tests green. Proof: a test-card purchase decrements exactly 1; the same webhook event replayed via Stripe CLI does **not** decrement again; a 0-stock size cannot create a session; a pickup order's email says where to pick up.
 **Watch for:** App Router webhook must read `await req.text()` before JSON-parsing or signature verification fails; embedded checkout needs the return-page session-status check; if embedded fights the layout, the hosted-redirect fallback is pre-authorized by D2 — record as an `As built:`.
