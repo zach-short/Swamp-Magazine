@@ -70,9 +70,8 @@ Google fonts (Anton/Archivo) until P2's font decision; image slots beyond
 **Watch for:** never commit `.env`; Resend sends from `onboarding@resend.dev` until the domain is verified in P5 — fine for testing, say so in the phase report.
 
 ### P2 — Storefront
-**BUILT 2026-08-22, uncommitted (commits are Zach's call; hash to be recorded at
-commit). Built by parallel lanes A–C per `p2-handoff.md`, verified and closed by
-Lane D the same session.**
+**BUILT 2026-08-22, commit `82c01d9`. P2 CLOSED.** Built by parallel lanes A–C
+per `p2-handoff.md`, verified and closed by Lane D the same session.
 **Gates at close:** `bunx tsc --noEmit` green; vitest 51/51; lint clean on every
 P2 file (2 warnings live in Lane J's in-flight `features/coming-soon` countdown
 work — the MVP parallel wave per `mvp-parallel-handoff.md` shares this tree);
