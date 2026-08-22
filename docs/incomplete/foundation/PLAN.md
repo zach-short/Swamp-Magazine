@@ -116,6 +116,66 @@ and `Reveal` now respects `prefers-reduced-motion`.
 **Watch for:** App Router webhook must read `await req.text()` before JSON-parsing or signature verification fails; embedded checkout needs the return-page session-status check; if embedded fights the layout, the hosted-redirect fallback is pre-authorized by D2 — record as an `As built:`.
 
 ### P4 — Admin
+**BUILT 2026-08-22, commit `f44fd68`. P4 CLOSED on W1–W6; W7 (orders) OWED.**
+Gates re-run from a cold `.next` at close-out (not taken from the commit
+message): `bun run lint && bun run build && bunx tsc --noEmit && bun run test` —
+lint 0 warnings, build 21 routes with `ƒ Proxy (Middleware)`, tsc exit 0, vitest
+99/99 across 15 files. **Note the gate order:** `build` must precede `tsc` on a
+cold tree or the generated route types don't exist yet and tsc fails on
+`PageProps`/`LayoutProps`; `CLAUDE.md`'s line still reads `lint && tsc && build`.
+**Proofs** — the founder-shaped phone walkthrough, run by Zach 2026-08-22 and
+recorded per-entry in the new `RUNTIME-PASS.md` (this project's first; P1's and
+P2's proofs stay in their headers above and were deliberately *not* reconstructed
+into it). W1 allowlist **both cases** — an address outside `ADMIN_EMAILS` is
+bounced through sign-out and never reaches the shell; W2 mode toggle flipped `/`
+to the storefront on one reload, no redeploy; W3 `drop_at` armed and reads back
+in local wall-clock; W4 image swap — **verified independently of testimony**, see
+below; W5 zeroing a size renders it sold-out on the storefront, restored after;
+W6 subscriber count matches the DB (3) and the CSV opens as a spreadsheet.
+**W4 is the headline and needed no one's word for it:** `landing_hero` and
+`landing_mascot` were written at 16:37:53Z and 14:39:17Z as versioned-hash WebPs
+(20 KB and 57 KB — the 3–5 MB phone masters really were resized), *after* commit
+`f44fd68` deployed at 14:09:47Z, and production serves both through
+`/_next/image` today. Content changed without a deploy. Slot counter 5/10 → 7/10.
+**This closes two P2 deviations:** the landing hero no longer falls back to the
+star-shorts lifestyle shot, and the goblin mascot exists.
+**W7 — mark an order picked up — DID NOT RUN.** Blocked twice over, both
+human-keyed: the P3 migration (`20260823000000_checkout_money_path.sql`) is still
+unapplied on the live project, and Stripe is configured in **no** environment.
+0 orders exist and none can be created. The orders screen renders its empty state
+correctly (`features/admin/lib/orders.ts:16` selects only foundation columns).
+**Ordering hazard:** the missing Stripe key currently *masks* the missing
+migration — add a key first and the action reaches an insert against a column
+that doesn't exist. Apply the migration **before** the keys.
+**Deviations at close:** the mode flip ran **both directions** — live at 16:49Z,
+back to `coming_soon` with `drop_at` cleared at 17:39:51Z — so the **exposure
+window was ~50 minutes**, much longer than P1 (49 s) or P2 (~15 s). The intent
+mid-session was to leave the site live; it was reverted before close. Visitors
+during that window saw the full storefront with "ORDERS OPEN SOON" on every
+product page — the graceful `stripe-unconfigured` branch, not an outage, and
+nothing purchasable. End state matches the handoff's requested fixture:
+`coming_soon`, `drop_at` null. One sub-case went unproven and is not claimed:
+`drop_at` in the *past* opening the store (vitest covers it; nobody saw it), and
+one was unexercisable — an unsubscribed row rendering as unsubscribed in the CSV,
+since all 3 subscribers are active. **A real defect surfaced and was fixed:** the
+DROP TIME `datetime-local` input overflowed its container on iOS, spilling past
+the SET/CLEAR buttons, because a flex item's `min-width: auto` beats `w-full`
+against that control's intrinsic width — `min-w-0` on
+`site-mode-controls.tsx:161`. Desktop never showed it; only the phone did, which
+is the argument for the walkthrough's shape. **Also observed:** the pass was run
+against `swampmagazine.com` — DNS is pointed and the apex redirects to `www`.
+That is a P5 cutover item that happened early; P5 is *not* entered and its
+remaining items (Resend domain verification, Vercel Pro, live keys) still stand.
+Storage writes went through the service
+role behind the admin guard rather than the allowlist-scoped bucket policies the
+watch-for asked for — strictly tighter, and the `202608231…` migration that would
+have carried those policies was never written. W1 incidentally closed the
+long-standing "unverified" flag on Supabase Auth: the magic link arriving proves
+the email provider and the Redirect URLs are both configured.
+**Found but not fixed** (out of P4's scope, queued in `admin-completion`): the
+dashboard renders `subscribers.total`, which counts unsubscribed rows, where it
+should render the `active` figure already returned beside it — today both are 3,
+so the wrong number is accidentally right and W6 could not have caught it.
 **Scope:** 1) Supabase Auth (email allowlist of 2: Zach + founder), `/admin` group guarded server-side. 2) Mode toggle + optional `drop_at` (arms the countdown). 3) Products/variants/inventory CRUD. 4) Image-slot manager: upload → resize → replaces slot, storefront revalidates (`revalidateTag`). 5) Subscribers: list, count, CSV export. 6) Orders: list, detail, mark fulfilled / picked-up.
 **Done when:** gates green. Proof: founder-shaped walkthrough on a phone — swap the landing hero from the admin and see it live, flip site mode, export CSV and open it, mark a test order picked-up.
 **Watch for:** storage-write policies scoped to the allowlist, not any authed user; every mutation revalidates the affected public path or tag, or the founder "sees no change" and loses trust in the admin.

@@ -160,10 +160,16 @@ export function SiteModeControls({
 
         <label className="flex flex-col gap-1 font-body text-[10px] tracking-widest">
           YOUR LOCAL TIME
+          {/*
+            min-w-0: iOS gives datetime-local an intrinsic width wider than this
+            column, and a flex item's default min-width:auto lets that beat
+            w-full — the field spills past the SET/CLEAR buttons without it.
+            px-4 matches buttonClasses so the three stack to one edge.
+          */}
           <input
             type="datetime-local"
             ref={bindDropAtInput}
-            className="w-full border-2 border-current bg-transparent px-3 py-3 font-body text-base outline-none"
+            className="w-full min-w-0 border-2 border-current bg-transparent px-4 py-3 font-body text-base outline-none"
           />
         </label>
 

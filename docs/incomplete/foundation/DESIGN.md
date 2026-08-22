@@ -254,6 +254,42 @@ a gate question, unless Zach objects.
   `prefers-reduced-motion`-aware), a quiet route fade, and the CSS marquee —
   nothing else moves.
 
+## As built (P4, 2026-08-22)
+
+Implements D3 (the full custom admin). All six of D3's items shipped; what
+follows is where the build differs from what D3 and `PLAN.md` §P4 described.
+
+- **Storage writes go through the service role behind the admin guard**, not
+  through allowlist-scoped bucket policies. P4's watch-for asked for policies
+  "scoped to the allowlist, not any authed user"; this is strictly tighter than
+  that — a signed-in non-admin has no path to storage at all, because the only
+  writer is a server action that runs `resolveAdminAccess()` first. The
+  consequence to know: the buckets have no write policies of their own, so any
+  future client-side upload has to add them deliberately rather than inheriting
+  them.
+- **Orders are an accordion, not an `/admin/orders/[id]` route.** A deliberate
+  phone-first call (`order-card.tsx:15`): the founder's queue is short and a
+  detail route costs a round trip per order. Order writes match on the expected
+  current status, so a webhook landing mid-tap reports stale rather than
+  clobbering.
+- **`sharp` moved to `dependencies`** (not `devDependencies`) because the
+  image-slot manager resizes at request time rather than only at seed time. BD-6
+  assumed resize happened at seed/upload in a script; half of it now runs in a
+  server action.
+- **Image slots are versioned, never overwritten.** An upload mints a new
+  `<slot_key>-<hash>.webp`, repoints the row, and deletes the old object last.
+  So a failed upload can't leave a slot pointing at nothing, and the storefront
+  never serves a half-written file. Verified in production at close: a hero
+  written after the running deploy was live on the next load, no redeploy.
+- **The mode gate stays global and fail-closed.** D3 named an admin; it did not
+  name an admin *preview*. Verifying the storefront still means flipping the
+  shared production row, which every phase so far has done and P4 did again.
+  That cost is now recorded rather than assumed — it is the standing argument
+  for the signed-admin preview scoped in `admin-completion` §3 O-B.
+- **The allowlist is `ADMIN_EMAILS` + a redeploy.** Correct at two people, and
+  D3 said two. The founder cannot add an admin himself; that is the accepted
+  trade, not an oversight.
+
 ## 7. Open questions → GATE 1
 
 Asked and answered in chat 2026-08-22; recorded above as D1–D4. Nothing remains open
