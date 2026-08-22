@@ -32,7 +32,7 @@ One phase per session. Phase headers get `**BUILT <date>, commit <hash>**` as th
 | P5 | Launch & drop mechanics | Opus | comfortable | DNS, live keys, perf, announcement send |
 
 ### P1 — Foundation & coming-soon
-**BUILT 2026-08-22, commit `<pending>`. P1 CLOSED — "Done when" proofs verified in
+**BUILT 2026-08-22, commit `cadf7d2`. P1 CLOSED — "Done when" proofs verified in
 the cloud same day.** Gates green: `bun run lint && bunx tsc --noEmit && bun run test
 && bun run build` (Next 16.3.2 / React 19.2.8 / Tailwind 4.3.3 per BD-2; vitest 6/6).
 Built: scaffold + repo hygiene, both migrations, seed script, mode gate (fails closed
