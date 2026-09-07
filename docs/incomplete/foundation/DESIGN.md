@@ -484,6 +484,53 @@ it is independent of any of this work. Production runs test keys today (P3's R1
 was a test-card purchase against it), so the registration above is the one that
 governs the live site as it currently stands.
 
+## As built (admin auth → Google-only, 2026-09-07)
+
+**Amends D3.** The allowlist of 2 stands unchanged; only the way a session is
+minted moves. `/admin` sign-in is now Google OAuth alone — Supabase's email
+provider is off, and there is no password and no magic link.
+
+**Why the guarantee does not change.** The allowlist never lived on the sign-in
+form. `denyAdminEmail` runs against the *verified* JWT email claim
+(`getClaims`, signature-checked) in the callback and again on every guarded
+render, so the identity being authorized is the one Supabase issued, not a
+value lifted from a spoofable cookie. Google replaces who mints the session;
+`ADMIN_EMAILS` still decides who is an admin. It still fails closed: an unset
+allowlist denies everyone.
+
+**What the swap costs, stated plainly.** The magic link could refuse an
+off-list address *before* Supabase was touched, because the address arrived in
+the form — no stranger ever got an `auth.users` row. An OAuth identity does not
+exist until Google returns it, so anyone who finds `/admin/sign-in` and clicks
+through now mints a row, is denied at the callback, and is signed out. They
+reach nothing. The row is litter, not access. Left in place deliberately:
+deleting it would mean handing the service-role key to the sign-in path, which
+is a worse trade than a few junk rows on an unlinked URL. Revisit if the table
+ever fills.
+
+**Restricting at Google's end is not available to us.** The `hd` parameter and
+Google Cloud's "Internal" user type scope to a Workspace *domain*; neither can
+name individual `@gmail.com` accounts, and `hd` is a client-supplied hint that
+must never be trusted server-side regardless. Both admins are on personal Gmail,
+so `ADMIN_EMAILS` remains the only enforcement — which is what it already was.
+
+**Code shape.** `startAdminGoogleSignIn` (server action, because the PKCE
+verifier is a cookie and only an action can write one) returns Supabase's
+consent-screen URL and redirects to it, passing `prompt=select_account` so a
+shared device does not silently reuse the wrong Google account. The callback
+kept its `?code=` branch untouched — OAuth PKCE and the old magic link were
+always the same exchange — and lost the `token_hash` branch, which now has no
+sender. A cancelled or expired consent screen comes back without a code and
+lands on `?denied=sign-in-failed`.
+
+**Dashboard state, not repo state (unverified here).** Google provider enabled
+in Supabase with a Google Cloud OAuth client; that client needs
+`https://<project-ref>.supabase.co/auth/v1/callback` as an authorized redirect
+URI, and the existing Supabase Redirect URLs entry for `/admin/auth/callback`
+still has to be present. The email provider should be turned off, or the old
+path stays open. Until all of that is done, `/admin` sign-in is broken —
+`RUNTIME-PASS.md` W1 wants re-running against Google.
+
 ## 7. Open questions → GATE 1
 
 Asked and answered in chat 2026-08-22; recorded above as D1–D4. Nothing remains open

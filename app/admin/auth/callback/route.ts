@@ -1,59 +1,40 @@
-import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { adminRoutes, resolveAdminAccess } from "@/features/admin";
 import { createClient } from "@/lib/supabase/server";
 
-// Where the magic link lands. Two shapes are accepted so the flow survives
-// either email template:
-//   ?code=...                 PKCE, what the default template produces. Needs
-//                             the verifier cookie, so it must be opened in the
-//                             browser that asked for the link.
-//   ?token_hash=...&type=...  the {{ .TokenHash }} template, which works
-//                             cross-device.
+// Where Google lands after Supabase has traded the provider's response for our
+// own `?code=`. PKCE, so the verifier cookie written by the sign-in action has
+// to be present -- the round trip must finish in the browser that started it.
 // Cookies are writable in a route handler, which is why the session is
 // established here rather than in a Server Component.
-
-const EMAIL_OTP_TYPES = [
-  "magiclink",
-  "email",
-  "signup",
-  "invite",
-  "recovery",
-  "email_change",
-] as const;
+//
+// A cancelled consent screen comes back as `?error=access_denied` with no
+// code; so does an expired one. Neither is worth distinguishing to the person
+// looking at the page, so both land on the same "try again".
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
-  const supabase = await createClient();
 
   const code = searchParams.get("code");
-  const tokenHash = searchParams.get("token_hash");
-  const otpType = toEmailOtpType(searchParams.get("type"));
-
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      console.error("[ADMIN_CALLBACK] code exchange:", error.message);
-      return toSignIn(origin, "link-expired");
-    }
-  } else if (tokenHash && otpType) {
-    const { error } = await supabase.auth.verifyOtp({
-      type: otpType,
-      token_hash: tokenHash,
-    });
-    if (error) {
-      console.error("[ADMIN_CALLBACK] verifyOtp:", error.message);
-      return toSignIn(origin, "link-expired");
-    }
-  } else {
-    console.error("[ADMIN_CALLBACK] callback hit with no code or token_hash");
-    return toSignIn(origin, "bad-link");
+  if (!code) {
+    console.error(
+      "[ADMIN_CALLBACK] no code:",
+      searchParams.get("error_description") ?? searchParams.get("error") ?? "",
+    );
+    return toSignIn(origin, "sign-in-failed");
   }
 
-  // The sign-in action only mails allowlisted addresses, but a link minted
-  // elsewhere (a dashboard invite, a recovery mail) could still land here.
-  // Refuse to leave that session standing.
+  const supabase = await createClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    console.error("[ADMIN_CALLBACK] code exchange:", error.message);
+    return toSignIn(origin, "sign-in-failed");
+  }
+
+  // Google will hand a session to anyone with a Google account -- the
+  // allowlist is the only thing that makes this an admin. A denied identity
+  // does not get to keep the session it just minted.
   const access = await resolveAdminAccess();
   if (access.status !== "ok") {
     console.error("[ADMIN_CALLBACK] session denied:", access.reason);
@@ -69,9 +50,4 @@ function toSignIn(origin: string, reason: string) {
   const url = new URL(adminRoutes.signIn, origin);
   url.searchParams.set("denied", reason);
   return NextResponse.redirect(url);
-}
-
-function toEmailOtpType(value: string | null): EmailOtpType | null {
-  const match = EMAIL_OTP_TYPES.find((type) => type === value);
-  return match ?? null;
 }

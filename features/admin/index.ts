@@ -16,7 +16,11 @@ export {
   type AdminAccess,
   type AdminIdentity,
 } from "./lib/admin-guard";
-export { denyAdminEmail, type AdminDenial } from "./lib/admin-allowlist";
+export {
+  denyAdminEmail,
+  hasAdminAllowlist,
+  type AdminDenial,
+} from "./lib/admin-allowlist";
 export {
   getSubscribersForExport,
   getSubscriberList,

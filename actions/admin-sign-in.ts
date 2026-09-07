@@ -1,76 +1,74 @@
 "use server";
 
 import { headers } from "next/headers";
-import { z } from "zod";
+import { redirect } from "next/navigation";
 
-import { denyAdminEmail } from "@/features/admin/lib/admin-allowlist";
+import { hasAdminAllowlist } from "@/features/admin/lib/admin-allowlist";
 import { adminRoutes } from "@/features/admin/lib/admin-routes";
 import { createClient } from "@/lib/supabase/server";
 
-export type AdminSignInFailure =
-  | "invalid-email"
-  | "no-allowlist"
-  | "not-allowed"
-  | "send-failed";
+export type AdminSignInFailure = "no-allowlist" | "google-unreachable";
 
 export type AdminSignInState =
   | { status: "idle" }
-  | { status: "success"; email: string }
   | { status: "error"; reason: AdminSignInFailure };
 
-const emailSchema = z.email().max(320);
-
 /**
- * Sends the magic link -- but only to an allowlisted address.
+ * Hands the browser to Google. Authorizes nobody.
  *
- * The allowlist check happens BEFORE Supabase is touched: `signInWithOtp`
- * creates an auth user for whatever address it is handed, so an unguarded form
- * here would be both a mail relay and a way to fill the auth table with
- * strangers.
+ * Google settles *who* you are; `ADMIN_EMAILS` settles whether that identity
+ * gets in, and that check runs on the verified JWT claim -- in the callback,
+ * and again on every guarded render. Nothing here is a gate.
+ *
+ * The magic link this replaced could refuse an off-list address before
+ * Supabase was ever touched, because the address arrived in the form. An OAuth
+ * identity does not exist until Google returns it, so a stranger who finds
+ * this page mints an `auth.users` row and is then denied and signed out at the
+ * callback. That row is litter, not access. What is still knowable up front is
+ * an empty allowlist, and it is worth catching: a round trip that can only end
+ * in a denial is a worse error message than saying so on the page.
+ *
+ * Runs as a server action rather than a link because the PKCE verifier is a
+ * cookie, and only an action (or a route handler) can write one. Takes no
+ * arguments -- there is no form to read, only a button -- so the caller
+ * supplies `useActionState`'s type parameters rather than this signature.
  */
-export async function sendAdminMagicLink(
-  _previous: AdminSignInState,
-  formData: FormData,
-): Promise<AdminSignInState> {
-  const parsed = emailSchema.safeParse(formData.get("email"));
-  if (!parsed.success) {
-    return { status: "error", reason: "invalid-email" };
-  }
-
-  const email = parsed.data.trim().toLowerCase();
-  const denial = denyAdminEmail(email);
-  if (denial === "no-allowlist") {
+export async function startAdminGoogleSignIn(): Promise<AdminSignInState> {
+  if (!hasAdminAllowlist()) {
     return { status: "error", reason: "no-allowlist" };
   }
-  if (denial) {
-    return { status: "error", reason: "not-allowed" };
-  }
+
+  let consentScreen: string;
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
       options: {
         // Safe against a spoofed Host header: Supabase only honours redirect
         // targets that match the project's configured Redirect URLs, and falls
         // back to the Site URL otherwise.
-        emailRedirectTo: `${await resolveOrigin()}${adminRoutes.callback}`,
-        // The two admins have no accounts until their first sign-in, and the
-        // allowlist above is what keeps this from being open registration.
-        shouldCreateUser: true,
+        redirectTo: `${await resolveOrigin()}${adminRoutes.callback}`,
+        // Both admins sign into personal Google accounts on shared devices.
+        // Without this, Google reuses whichever account is already live and
+        // the wrong one silently lands on the denial screen.
+        queryParams: { prompt: "select_account" },
       },
     });
 
-    if (error) {
-      console.error("[ADMIN_SIGN_IN]", error.status, error.message);
-      return { status: "error", reason: "send-failed" };
+    if (error || !data.url) {
+      console.error("[ADMIN_SIGN_IN]", error?.status, error?.message);
+      return { status: "error", reason: "google-unreachable" };
     }
 
-    return { status: "success", email };
+    consentScreen = data.url;
   } catch (error) {
     console.error("[ADMIN_SIGN_IN]", error);
-    return { status: "error", reason: "send-failed" };
+    return { status: "error", reason: "google-unreachable" };
   }
+
+  // Outside the try: `redirect` signals by throwing.
+  redirect(consentScreen);
 }
 
 async function resolveOrigin(): Promise<string> {

@@ -15,8 +15,8 @@ export const adminRoutes = {
   orders: "/admin/orders",
 } as const;
 
-// Reachable while signed out. The magic-link round trip dies if the callback
-// is behind the same redirect as everything else.
+// Reachable while signed out. The Google round trip dies if the callback is
+// behind the same redirect as everything else.
 export const publicAdminPrefixes = [adminRoutes.signIn, "/admin/auth"] as const;
 
 export function isPublicAdminPath(pathname: string): boolean {
