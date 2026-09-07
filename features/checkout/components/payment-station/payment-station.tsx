@@ -180,8 +180,11 @@ function PaymentFields({
   ) {
     setErrorLine(null);
     setIsPaying(true);
-    // No billingAddress here on purpose: the wallet sheet supplies the payer's
-    // own name and address, and those beat anything typed on this page.
+    // Nothing is passed here on purpose: the wallet sheet is the only place
+    // this path collects anything, and its name, email and address land on the
+    // session at confirm. Adding our own would either be overwritten or
+    // silently overwrite the payer's, which is the mismatch the chooser-first
+    // layout exists to prevent.
     const result = await checkout.confirm({
       expressCheckoutConfirmEvent: event,
     });
@@ -211,32 +214,14 @@ function PaymentFields({
       />
 
       <fieldset disabled={isPaying} className="flex flex-col gap-5">
-        {/* Contact and address come before the payment choice on purpose: a
-            wallet sheet confirms against whatever the session already holds, so
-            anything gathered after the buyer taps Apple Pay would arrive too
-            late to reach the order. */}
-        <label className="flex flex-col">
-          <span className="font-display text-xs tracking-widest">
-            {orderCopy.name}
-          </span>
-          <input
-            type="text"
-            name="buyer-name"
-            autoComplete="name"
-            value={buyerName}
-            onChange={(event) => setBuyerName(event.target.value)}
-            // Left unrequired so a wallet button, which is not a form submit
-            // and carries its own payer name, is never gated behind typing.
-            // The card path checks it in handleSubmit instead.
-            className="border-b-2 border-current bg-transparent py-1.5 text-base text-brand-red outline-none placeholder:text-brand-red/45 focus:border-brand-yellow"
-          />
-        </label>
-
-        <ContactDetailsElement />
-
-        {delivery === "shipping" ? <ShippingAddressElement /> : null}
-
-        <div className="flex flex-col gap-3">
+        {/* The chooser comes first because a wallet sheet collects the payer's
+            own name, email and address and confirms against those -- they land
+            on the session at confirm and overwrite whatever this page put
+            there. Asking for contact details above the choice meant an Apple
+            Pay buyer typed an email, watched it be discarded, and got the
+            confirmation at their Apple ID address instead. Everything below is
+            therefore card-path only; the wallet path asks for nothing. */}
+        <div className={isChoosing ? "flex flex-col gap-3" : "hidden"}>
           <p className="text-xs tracking-widest opacity-70">
             {orderCopy.payWith}
           </p>
@@ -247,40 +232,64 @@ function PaymentFields({
               card is chosen because unmounting would throw away what `ready`
               told us, and CHANGE PAYMENT METHOD needs that answer to know
               whether there is anything to change back to. */}
-          <div className={isChoosing ? undefined : "hidden"}>
-            <ExpressCheckoutElement
-              // Every key here is spelled out because the Checkout-Sessions
-              // variant of these options types them all as required, unlike
-              // the Elements one.
-              options={{
-                buttonHeight: 48,
-                buttonTheme: { applePay: "black", googlePay: "black" },
-                buttonType: { applePay: "buy", googlePay: "buy" },
-                layout: { maxColumns: 1, overflow: "never" },
-                paymentMethodOrder: ["applePay", "googlePay"],
-                paymentMethods: {
-                  applePay: "auto",
-                  googlePay: "auto",
-                  link: "never",
-                  paypal: "never",
-                  amazonPay: "never",
-                  klarna: "never",
-                },
-              }}
-              onReady={handleWalletReady}
-              onConfirm={handleWalletConfirm}
-            />
-          </div>
+          <ExpressCheckoutElement
+            // Every key here is spelled out because the Checkout-Sessions
+            // variant of these options types them all as required, unlike
+            // the Elements one.
+            options={{
+              buttonHeight: 48,
+              // The outlined themes are the closest the wallets get to the
+              // mockups' outlined-square language; Google Pay has no
+              // white-outline, so plain white is its nearest match.
+              buttonTheme: { applePay: "white-outline", googlePay: "white" },
+              buttonType: { applePay: "buy", googlePay: "buy" },
+              layout: { maxColumns: 1, overflow: "never" },
+              paymentMethodOrder: ["applePay", "googlePay"],
+              paymentMethods: {
+                applePay: "auto",
+                googlePay: "auto",
+                link: "never",
+                paypal: "never",
+                amazonPay: "never",
+                klarna: "never",
+              },
+            }}
+            onReady={handleWalletReady}
+            onConfirm={handleWalletConfirm}
+          />
 
-          {isChoosing ? (
-            <button
-              type="button"
-              onClick={() => setMethod("card")}
-              className="border-2 border-current py-3 font-display text-2xl tracking-wide hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 focus-visible:outline-none"
-            >
-              {orderCopy.payWithCard}
-            </button>
-          ) : (
+          <button
+            type="button"
+            onClick={() => setMethod("card")}
+            className="border-2 border-current py-3 font-display text-2xl tracking-wide hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 focus-visible:outline-none"
+          >
+            {orderCopy.payWithCard}
+          </button>
+        </div>
+
+        {isChoosing ? null : (
+          <>
+            <label className="flex flex-col">
+              <span className="font-display text-xs tracking-widest">
+                {orderCopy.name}
+              </span>
+              <input
+                type="text"
+                name="buyer-name"
+                autoComplete="name"
+                value={buyerName}
+                onChange={(event) => setBuyerName(event.target.value)}
+                // Unrequired at the DOM level so the browser cannot block
+                // submit before handleSubmit has a chance to say it in the
+                // mockups' voice; that check is what actually gates the card.
+                className="border-b-2 border-current bg-transparent py-1.5 text-base text-brand-red outline-none placeholder:text-brand-red/45 focus:border-brand-yellow"
+              />
+            </label>
+
+            <ContactDetailsElement />
+
+            {delivery === "shipping" ? <ShippingAddressElement /> : null}
+
             <PaymentElement
               options={{
                 // Expanded, headerless, no radio: the buyer already chose CARD
@@ -304,8 +313,8 @@ function PaymentFields({
                 },
               }}
             />
-          )}
-        </div>
+          </>
+        )}
       </fieldset>
 
       {errorLine ? (
