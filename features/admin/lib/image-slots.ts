@@ -7,8 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 import { slotStoragePath, type SlotDefinition } from "./slot-keys";
 
-// The image-slot manager's data layer: read what is registered, and swap an
-// image for a new one.
+// The image-slot manager's data layer: read what is registered, swap an image
+// for a new one, and take one back off the site.
 //
 // Writes go through the service-role client rather than storage RLS policies.
 // The P4 brief asks for storage writes scoped to the allowlist rather than to
@@ -157,6 +157,59 @@ export async function replaceSlotImage(
   return { status: "success", url: publicUrl.publicUrl };
 }
 
+export type SlotDeleteFailure = "not-registered" | "clear-failed";
+
+export type SlotDeleteResult =
+  | { status: "success" }
+  | { status: "error"; reason: SlotDeleteFailure };
+
+/**
+ * Unregister -> delete the object, in that order.
+ *
+ * Same discipline as the swap, pointed the other way. The row is what the
+ * storefront reads, so dropping it first means the site has already stopped
+ * asking for the file by the time the file goes. Removing the object first
+ * would leave a row aimed at nothing -- a broken image on the live page -- for
+ * as long as the row delete kept failing.
+ */
+export async function clearSlotImage(
+  slot: SlotDefinition,
+): Promise<SlotDeleteResult> {
+  let deleted: { bucket: string; storagePath: string };
+
+  try {
+    const supabase = createAdminClient();
+    // The delete returns the row it removed, which is both the answer to "was
+    // anything registered" and the address of the object to clean up. Reading
+    // first instead would need a second round trip and could not tell a missing
+    // row apart from a failed read -- and reporting a read failure as "already
+    // empty" is the one lie this action must not tell.
+    const { data, error } = await supabase
+      .from("image_slots")
+      .delete()
+      .eq("slot_key", slot.key)
+      .select("bucket, storage_path")
+      .maybeSingle();
+
+    if (error) {
+      console.error("[ADMIN_SLOT_CLEAR]", error.code, error.message);
+      return { status: "error", reason: "clear-failed" };
+    }
+    if (!data) return { status: "error", reason: "not-registered" };
+
+    deleted = {
+      bucket: data.bucket as string,
+      storagePath: data.storage_path as string,
+    };
+  } catch (error) {
+    console.error("[ADMIN_SLOT_CLEAR]", error);
+    return { status: "error", reason: "clear-failed" };
+  }
+
+  await removeStorageObject(deleted);
+  return { status: "success" };
+}
+
 async function getSlotRow(
   key: string,
 ): Promise<{ bucket: string; storagePath: string } | null> {
@@ -190,11 +243,23 @@ async function removeSuperseded(
   // guard only against deleting what was just uploaded.
   if (previous.bucket === bucket && previous.storagePath === storagePath) return;
 
+  await removeStorageObject(previous);
+}
+
+/**
+ * Drops one object and swallows whatever goes wrong. Both callers have already
+ * committed the change the founder actually asked for by the time this runs,
+ * so an orphaned file is a cost worth paying to keep the reported outcome true.
+ */
+async function removeStorageObject(target: {
+  bucket: string;
+  storagePath: string;
+}): Promise<void> {
   try {
     const supabase = createAdminClient();
     const { error } = await supabase.storage
-      .from(previous.bucket)
-      .remove([previous.storagePath]);
+      .from(target.bucket)
+      .remove([target.storagePath]);
     if (error) console.error("[ADMIN_SLOT_CLEANUP]", error.message);
   } catch (error) {
     console.error("[ADMIN_SLOT_CLEANUP]", error);

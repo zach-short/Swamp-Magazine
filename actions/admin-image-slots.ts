@@ -8,7 +8,10 @@ import { z } from "zod";
 import { dials } from "@/config/dials";
 import { resolveAdminAccess } from "@/features/admin/lib/admin-guard";
 import { adminRoutes } from "@/features/admin/lib/admin-routes";
-import { replaceSlotImage } from "@/features/admin/lib/image-slots";
+import {
+  clearSlotImage as clearRegisteredSlot,
+  replaceSlotImage,
+} from "@/features/admin/lib/image-slots";
 import { getProductIndex } from "@/features/admin/lib/products";
 import {
   allSlotDefinitions,
@@ -84,6 +87,56 @@ export async function uploadSlotImage(
 
   revalidateImagery(slot.key);
   return { status: "success", url: result.url };
+}
+
+export type SlotClearFailure =
+  | "not-authorized"
+  | "invalid-input"
+  | "unknown-slot"
+  | "not-set"
+  | "server-error";
+
+export type SlotClearResult =
+  | { status: "success" }
+  | { status: "error"; reason: SlotClearFailure };
+
+/**
+ * Takes one slot back off the site.
+ *
+ * The slot key is checked against the same closed list the upload uses, for
+ * the same reason: an unchecked key here would delete rows the admin never
+ * offered. A plain argument rather than FormData -- there is no file to carry
+ * -- but it still crosses the network, so the type is a claim to verify, not a
+ * fact.
+ */
+export async function clearSlotImage(
+  slotKey: string,
+): Promise<SlotClearResult> {
+  const access = await resolveAdminAccess();
+  if (access.status !== "ok") {
+    return { status: "error", reason: "not-authorized" };
+  }
+
+  if (typeof slotKey !== "string") {
+    return { status: "error", reason: "invalid-input" };
+  }
+
+  const products = await getProductIndex();
+  if (!products) return { status: "error", reason: "server-error" };
+
+  const slot = findSlotDefinition(allSlotDefinitions(products), slotKey);
+  if (!slot) return { status: "error", reason: "unknown-slot" };
+
+  const result = await clearRegisteredSlot(slot);
+  if (result.status === "error") {
+    return {
+      status: "error",
+      reason: result.reason === "not-registered" ? "not-set" : "server-error",
+    };
+  }
+
+  revalidateImagery(slot.key);
+  return { status: "success" };
 }
 
 /**

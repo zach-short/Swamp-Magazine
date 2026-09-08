@@ -82,9 +82,12 @@ export {
   type OrderStatus,
 } from "./lib/order-status";
 export {
+  clearSlotImage,
   getRegisteredSlots,
   replaceSlotImage,
   type RegisteredSlot,
+  type SlotDeleteFailure,
+  type SlotDeleteResult,
   type SlotWriteFailure,
   type SlotWriteResult,
 } from "./lib/image-slots";
