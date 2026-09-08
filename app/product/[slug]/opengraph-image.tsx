@@ -23,7 +23,7 @@ export default async function ProductOpengraphImage({
     ? renderOgCard({
         eyebrow: "SWAMP MAGAZINE",
         title: product.name,
-        footnote: "THE FIRST ISSUE",
+        footnote: "THE THIRD ISSUE",
       })
     : renderOgCard({
         eyebrow: "FROM LALO FARRO",

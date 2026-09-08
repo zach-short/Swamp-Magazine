@@ -14,7 +14,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "SWAMP MAGAZINE",
     short_name: "SWAMP",
-    description: "SWAMP MAGAZINE. The first issue, from Lalo Farro.",
+    description: "SWAMP MAGAZINE. The third issue, from Lalo Farro.",
     start_url: "/",
     display: "standalone",
     background_color: CREAM,

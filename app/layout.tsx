@@ -20,7 +20,7 @@ const archivo = Archivo({
 });
 
 // Description and title are the founder's own words off the coming-soon
-// mockups ("SWAMP MAGAZINE", "THE FIRST ISSUE", "FROM LALO FARRO"), not a
+// mockups ("SWAMP MAGAZINE", "THE THIRD ISSUE", "FROM LALO FARRO"), not a
 // marketing gloss. metadataBase makes every relative OG/canonical URL absolute
 // against the real domain, which is what crawlers and Slack/iMessage unfurls
 // need; openGraph carries no explicit `images` so the app/opengraph-image.tsx
@@ -28,7 +28,7 @@ const archivo = Archivo({
 export const metadata: Metadata = {
   metadataBase: new URL(dials.canonicalSiteUrl),
   title: "SWAMP MAGAZINE",
-  description: "SWAMP MAGAZINE. The first issue, from Lalo Farro.",
+  description: "SWAMP MAGAZINE. The third issue, from Lalo Farro.",
   applicationName: "SWAMP MAGAZINE",
   authors: [{ name: "Lalo Farro" }],
   creator: "Lalo Farro",
@@ -36,13 +36,13 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "SWAMP MAGAZINE",
     title: "SWAMP MAGAZINE",
-    description: "SWAMP MAGAZINE. The first issue, from Lalo Farro.",
+    description: "SWAMP MAGAZINE. The third issue, from Lalo Farro.",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "SWAMP MAGAZINE",
-    description: "SWAMP MAGAZINE. The first issue, from Lalo Farro.",
+    description: "SWAMP MAGAZINE. The third issue, from Lalo Farro.",
   },
 };
 

@@ -48,7 +48,7 @@ export async function ComingSoonScreen() {
           <h1 className="font-display text-[clamp(3rem,13vw,9rem)] leading-[0.95]">
             SWAMP MAGAZINE
           </h1>
-          <p className="font-body text-sm tracking-[0.35em]">THE FIRST ISSUE</p>
+          <p className="font-body text-sm tracking-[0.35em]">THE THIRD ISSUE</p>
         </header>
 
         {dropAt ? <DropCountdown targetIso={dropAt.toISOString()} /> : null}
@@ -62,7 +62,7 @@ export async function ComingSoonScreen() {
 }
 
 function Ticker() {
-  const line = "SWAMP MAGAZINE * THE FIRST ISSUE * COMING SOON * ";
+  const line = "SWAMP MAGAZINE * THE THIRD ISSUE * COMING SOON * ";
   const half = line.repeat(4);
 
   return (

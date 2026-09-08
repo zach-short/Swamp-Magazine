@@ -35,7 +35,7 @@ export function DropAnnouncementEmail({
   body,
   shopUrl,
   unsubscribeUrl,
-  ctaLabel = "SHOP THE FIRST ISSUE",
+  ctaLabel = "SHOP THE THIRD ISSUE",
   postalAddress,
 }: DropAnnouncementEmailProps) {
   return (
