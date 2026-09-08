@@ -41,9 +41,16 @@ export async function LiveLandingScreen() {
         {/* Letterboxed, not full-bleed: solid ink bars top and bottom turn the
             photograph into a projected frame. The image sits outside any
             Reveal so the LCP is never held behind an entrance animation, and a
-            null hero leaves the same composition on plain ink. */}
+            null hero leaves the same composition on plain ink.
+
+            The bars are a share of the hero, not a fixed 72px. The canvas sets
+            them at 72 on an 880px artboard; pinning that pixel value against a
+            viewport-driven hero made them read heavier on a short window and
+            thinner on a tall one, which is the one place the built hero drifted
+            from Direction A. 72/880 keeps the artboard's proportion at every
+            height. */}
         {imagery.hero && (
-          <div className="absolute inset-x-0 top-18 bottom-18">
+          <div className="absolute inset-x-0 top-[calc(72/880*100%)] bottom-[calc(72/880*100%)]">
             <Image
               src={imagery.hero.url}
               alt={imagery.hero.alt}
