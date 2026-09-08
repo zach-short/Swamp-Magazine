@@ -59,7 +59,7 @@ export function PaymentStation({
     // the row in `orders` without digging through logs.
     <section
       data-order-id={orderId}
-      className="flex w-full flex-col gap-4 text-brand-red"
+      className="flex w-full flex-col gap-4 font-body text-cream"
     >
       <CheckoutElementsProvider
         stripe={stripePromise}
@@ -116,7 +116,7 @@ function PaymentFields({
           size={size}
           totalDisplay={formatUsd(totalCents)}
         />
-        <p className="text-xs tracking-widest opacity-70">
+        <p className="text-[10px] tracking-[0.3em] text-cream/50">
           {orderCopy.paymentLoading}
         </p>
       </div>
@@ -126,10 +126,10 @@ function PaymentFields({
   if (checkoutState.type === "error") {
     return (
       <div className="flex flex-col gap-4">
-        <p role="alert" className="text-xs font-bold tracking-widest">
+        <p role="alert" className="text-xs font-bold tracking-widest text-brand-red">
           {paymentErrorLine(checkoutState.error.message)}
         </p>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-start">
           <QuietAction onClick={onChangeSize}>
             {orderCopy.changeSize}
           </QuietAction>
@@ -203,7 +203,7 @@ function PaymentFields({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 md:gap-8">
       <OrderLedger
         name={name}
         priceCents={priceCents}
@@ -222,7 +222,7 @@ function PaymentFields({
             confirmation at their Apple ID address instead. Everything below is
             therefore card-path only; the wallet path asks for nothing. */}
         <div className={isChoosing ? "flex flex-col gap-3" : "hidden"}>
-          <p className="text-xs tracking-widest opacity-70">
+          <p className="text-[10px] font-semibold tracking-[0.35em] text-cream/50">
             {orderCopy.payWith}
           </p>
 
@@ -261,7 +261,7 @@ function PaymentFields({
           <button
             type="button"
             onClick={() => setMethod("card")}
-            className="border-2 border-current py-3 font-display text-2xl tracking-wide hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 focus-visible:outline-none"
+            className="border border-brand-red/50 py-3 font-display text-xl tracking-[0.06em] text-cream transition-colors duration-200 hover:border-brand-yellow hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 focus-visible:outline-none md:text-2xl"
           >
             {orderCopy.payWithCard}
           </button>
@@ -270,7 +270,7 @@ function PaymentFields({
         {isChoosing ? null : (
           <>
             <label className="flex flex-col">
-              <span className="font-display text-xs tracking-widest">
+              <span className="font-display text-sm tracking-[0.1em] text-brand-red">
                 {orderCopy.name}
               </span>
               <input
@@ -282,7 +282,7 @@ function PaymentFields({
                 // Unrequired at the DOM level so the browser cannot block
                 // submit before handleSubmit has a chance to say it in the
                 // mockups' voice; that check is what actually gates the card.
-                className="border-b-2 border-current bg-transparent py-1.5 text-base text-brand-red outline-none placeholder:text-brand-red/45 focus:border-brand-yellow"
+                className="mt-2 border-b-2 border-cream/50 bg-transparent py-1.5 text-base text-cream outline-none placeholder:text-cream/45 focus:border-brand-yellow"
               />
             </label>
 
@@ -318,7 +318,7 @@ function PaymentFields({
       </fieldset>
 
       {errorLine ? (
-        <p role="alert" className="text-xs font-bold tracking-widest">
+        <p role="alert" className="text-xs font-bold tracking-widest text-brand-red">
           {errorLine}
         </p>
       ) : null}
@@ -329,13 +329,13 @@ function PaymentFields({
         <button
           type="submit"
           disabled={isPaying}
-          className="self-center font-display text-4xl tracking-wide hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 disabled:cursor-not-allowed disabled:text-brand-red disabled:opacity-40"
+          className="self-start font-display text-2xl tracking-[0.06em] text-brand-red transition-colors duration-200 hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 disabled:cursor-not-allowed disabled:text-brand-red disabled:opacity-40 md:text-[30px]"
         >
           {isPaying ? orderCopy.submitPending : orderCopy.submit}
         </button>
       )}
 
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-start gap-2">
         {/* Only worth offering when the chooser had more than one entry. */}
         {!isChoosing && hasWallets ? (
           <QuietAction onClick={() => setMethod(null)} disabled={isPaying}>
@@ -364,7 +364,7 @@ function QuietAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="text-xs tracking-widest underline underline-offset-4 opacity-70 hover:text-brand-yellow hover:opacity-100 disabled:cursor-not-allowed"
+      className="text-[10px] tracking-[0.25em] text-cream/60 underline underline-offset-4 transition-colors duration-200 hover:text-brand-yellow disabled:cursor-not-allowed"
     >
       {children}
     </button>

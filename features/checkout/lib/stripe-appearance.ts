@@ -10,15 +10,19 @@ import type { Appearance, CssFontSource } from "@stripe/stripe-js";
 // and the card form moves with the rest of the site.
 //
 // The shape being matched is the founder's order mockups -- NAME / PHONE /
-// ADDRESS as a label beside a ruled blank, red on the photo, no boxes and no
-// corners anywhere. That is why almost every rule below is subtractive: Stripe's
-// default is a bordered, rounded, shadowed card, and the mockups have none of
-// those.
+// ADDRESS as a label beside a ruled blank, no boxes and no corners anywhere.
+// That is why almost every rule below is subtractive: Stripe's default is a
+// bordered, rounded, shadowed card, and the mockups have none of those.
+//
+// Direction A moved the fields off the photograph and onto an ink panel, so the
+// reading colour is now cream and only the labels, the acts and the errors stay
+// red. Nothing about the session changed -- this is the appearance mapping.
 
 type Palette = {
   red: string;
   yellow: string;
   cream: string;
+  ink: string;
 };
 
 /** Anton and Archivo are self-hosted by next/font for our own document, which
@@ -53,14 +57,13 @@ export function buildCheckoutAppearance(): Appearance {
       spacingUnit: "4px",
       borderRadius: "0",
       colorPrimary: palette.red,
-      // Stripe derives contrast from this, so it has to name a real colour even
-      // though every surface below is painted transparent to let the founder's
-      // photo through.
-      colorBackground: palette.cream,
-      colorText: palette.red,
-      colorTextSecondary: palette.red,
-      colorTextPlaceholder: withAlpha(palette.red, 0.45),
-      colorIcon: palette.red,
+      // Stripe derives contrast from this, so it has to name the panel's real
+      // ground even though every surface below is painted transparent.
+      colorBackground: palette.ink,
+      colorText: palette.cream,
+      colorTextSecondary: withAlpha(palette.cream, 0.55),
+      colorTextPlaceholder: withAlpha(palette.cream, 0.45),
+      colorIcon: withAlpha(palette.cream, 0.7),
       // The shipped error line is plain red (checkout-form's `role="alert"`),
       // so danger stays red for consistency; the yellow underline below is what
       // actually points at the offending field.
@@ -86,10 +89,10 @@ export function buildCheckoutAppearance(): Appearance {
       ".Input": {
         backgroundColor: "transparent",
         border: "none",
-        borderBottom: `2px solid ${palette.red}`,
+        borderBottom: `2px solid ${withAlpha(palette.cream, 0.5)}`,
         borderRadius: "0",
         boxShadow: "none",
-        color: palette.red,
+        color: palette.cream,
         padding: "6px 0",
       },
       ".Input:focus": {
@@ -102,10 +105,10 @@ export function buildCheckoutAppearance(): Appearance {
       ".Input--invalid": {
         borderBottom: `2px solid ${palette.yellow}`,
         boxShadow: "none",
-        color: palette.red,
+        color: palette.cream,
       },
       ".Input::placeholder": {
-        color: withAlpha(palette.red, 0.45),
+        color: withAlpha(palette.cream, 0.45),
       },
       ".Error": {
         fontSize: "11px",
@@ -119,10 +122,10 @@ export function buildCheckoutAppearance(): Appearance {
       // language as the size row above it.
       ".Tab": {
         backgroundColor: "transparent",
-        border: `2px solid ${palette.red}`,
+        border: `1px solid ${withAlpha(palette.red, 0.5)}`,
         borderRadius: "0",
         boxShadow: "none",
-        color: palette.red,
+        color: palette.cream,
       },
       ".Tab:hover": {
         backgroundColor: "transparent",
@@ -130,7 +133,7 @@ export function buildCheckoutAppearance(): Appearance {
       },
       ".Tab--selected": {
         backgroundColor: "transparent",
-        border: `2px solid ${palette.yellow}`,
+        border: `1px solid ${palette.yellow}`,
         boxShadow: "none",
         color: palette.yellow,
       },
@@ -145,7 +148,7 @@ export function buildCheckoutAppearance(): Appearance {
         textTransform: "uppercase",
       },
       ".TabIcon": {
-        color: palette.red,
+        color: withAlpha(palette.cream, 0.7),
       },
       ".TabIcon--selected": {
         color: palette.yellow,
@@ -159,7 +162,7 @@ export function buildCheckoutAppearance(): Appearance {
         border: "none",
         borderRadius: "0",
         boxShadow: "none",
-        color: palette.red,
+        color: palette.cream,
         fontFamily: '"Anton", ui-sans-serif, system-ui, sans-serif',
         fontSize: "14px",
         letterSpacing: "0.1em",
@@ -172,28 +175,30 @@ export function buildCheckoutAppearance(): Appearance {
       },
       ".Block": {
         backgroundColor: "transparent",
-        border: `2px solid ${palette.red}`,
+        border: `1px solid ${withAlpha(palette.red, 0.35)}`,
         borderRadius: "0",
         boxShadow: "none",
       },
+      // The one opaque surface Stripe draws: a menu has to cover what is under
+      // it, and on this panel that means ink with a hairline, not cream.
       ".Dropdown": {
-        backgroundColor: palette.cream,
-        border: `2px solid ${palette.red}`,
+        backgroundColor: palette.ink,
+        border: `1px solid ${withAlpha(palette.red, 0.5)}`,
         borderRadius: "0",
         boxShadow: "none",
-        color: palette.red,
+        color: palette.cream,
       },
       ".DropdownItem": {
         backgroundColor: "transparent",
-        color: palette.red,
+        color: palette.cream,
       },
       ".DropdownItem--highlight": {
-        backgroundColor: withAlpha(palette.red, 0.12),
-        color: palette.red,
+        backgroundColor: withAlpha(palette.cream, 0.12),
+        color: palette.cream,
       },
       ".CheckboxInput": {
         backgroundColor: "transparent",
-        border: `2px solid ${palette.red}`,
+        border: `2px solid ${withAlpha(palette.cream, 0.5)}`,
         borderRadius: "0",
         boxShadow: "none",
       },
@@ -205,22 +210,22 @@ export function buildCheckoutAppearance(): Appearance {
         fontSize: "11px",
         letterSpacing: "0.08em",
         textTransform: "uppercase",
-        color: palette.red,
+        color: withAlpha(palette.cream, 0.55),
       },
       ".Text, .TermsText, .RedirectText": {
         fontSize: "11px",
         letterSpacing: "0.08em",
-        color: palette.red,
+        color: withAlpha(palette.cream, 0.55),
       },
       ".Link, .TermsLink, .SecondaryLink": {
-        color: palette.red,
+        color: palette.cream,
         textDecoration: "underline",
       },
       ".Link:hover, .TermsLink:hover, .SecondaryLink:hover": {
         color: palette.yellow,
       },
       ".Action": {
-        color: palette.red,
+        color: palette.cream,
         textTransform: "uppercase",
         letterSpacing: "0.08em",
       },
@@ -232,6 +237,7 @@ const TOKENS = {
   red: "--brand-red",
   yellow: "--brand-yellow",
   cream: "--cream",
+  ink: "--ink",
 } as const;
 
 function readPalette(): Palette {

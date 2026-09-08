@@ -15,10 +15,15 @@ export type CatalogProduct = {
   priceCents: number;
   modelCredits: string | null;
   cutout: SlotImage | null;
+  background: SlotImage | null;
   variants: ProductVariant[];
 };
 
-export type ProductDetail = CatalogProduct & { background: SlotImage | null };
+/** The landing's film band needs a `product_bg` too, and the slot map is
+ * already in hand on the list read, so the background moved onto every catalog
+ * row. Detail and list rows are the same shape now; the name is kept because
+ * it says which read a caller made. */
+export type ProductDetail = CatalogProduct;
 
 export type LandingImagery = { hero: SlotImage | null; mascot: SlotImage | null };
 
@@ -74,11 +79,7 @@ export async function getProduct(slug: string): Promise<ProductDetail | null> {
       return null;
     }
     if (!product.data) return null;
-    const row = product.data as ProductRow;
-    return {
-      ...toCatalogProduct(row, slots),
-      background: slots.get(`product_bg:${row.slug}`) ?? null,
-    };
+    return toCatalogProduct(product.data as ProductRow, slots);
   } catch (error) {
     console.error("[PRODUCT]", error);
     return null;
@@ -133,6 +134,7 @@ function toCatalogProduct(
     priceCents: row.price_cents,
     modelCredits: row.model_credits,
     cutout: slots.get(`product_cutout:${row.slug}`) ?? null,
+    background: slots.get(`product_bg:${row.slug}`) ?? null,
     variants: [...row.product_variants]
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((variant) => ({
@@ -140,4 +142,15 @@ function toCatalogProduct(
         soldOut: variant.inventory_count <= 0,
       })),
   };
+}
+
+/**
+ * The index number a product carries on the landing ("01"–"04"). Derived from
+ * position in the `sort_order`-ordered list rather than from `sort_order`
+ * itself, which is zero-based and free to have gaps once the founder reorders
+ * the catalog in the admin. Lives here so the index rows and the film band's
+ * caption can never disagree about which product is 03.
+ */
+export function catalogNumber(index: number): string {
+  return String(index + 1).padStart(2, "0");
 }

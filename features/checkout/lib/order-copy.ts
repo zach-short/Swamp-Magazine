@@ -64,6 +64,10 @@ export const orderCopy = {
   paymentFailed: "THAT PAYMENT DIDN'T GO THROUGH. TRY AGAIN",
   /** INVENTED -- the card step could not be built at all. */
   paymentUnavailable: "CHECKOUT ISN'T ANSWERING. TRY AGAIN",
+  /** INVENTED -- labels the size row. The mockups let the row stand unlabelled
+   * because it sat directly under the garment; Direction A's panel puts it in a
+   * column of other choices, where an unlabelled row of letters is a riddle. */
+  size: "SIZE",
   /** INVENTED -- the nudge the static mockups had no need for. */
   pickSize: "PICK A SIZE",
   /** INVENTED -- when every size is gone. */

@@ -72,12 +72,39 @@ const CATALOG: SeedProduct[] = [
   },
 ];
 
-// The only clean (no baked-in mockup text) lifestyle shot in the archive.
+// Product backgrounds. star-shorts is deliberately absent: its slot is already
+// registered against SHORTS GRID BACKGROUND SS.png, and `uploadWebp` upserts,
+// so listing it here would silently overwrite the live image with Zach's new
+// shot. That swap is the founder's call (parked, see the Direction A
+// hand-off); the admin uploader versions files instead of overwriting and is
+// the safer mechanism for it.
+//
+// lurker-longsleeve IS here even though nothing on the storefront shows it yet:
+// the founder created the product in the admin on 2026-08-28 and left it
+// `active: false` with no sizes, so RLS keeps it off every public read. The
+// slot is keyed by slug, so writing it now is inert until he activates the row
+// -- and then the background is already in place instead of being one more
+// thing to remember. Sizes, credits and the $30 price are still his to confirm.
 const LIFESTYLE_SLOTS = [
   {
-    slotKey: "product_bg:star-shorts",
-    file: "swamp-images/SHORTS GRID BACKGROUND SS.png",
-    alt: "Star Shorts lifestyle shot",
+    slotKey: "product_bg:vamp-tee",
+    file: "swamp-images/VAMP BG - ZACH.png",
+    alt: "Vamp Tee lifestyle shot",
+  },
+  {
+    slotKey: "product_bg:college-arch",
+    file: "swamp-images/COLLEGE ARCH BG - ZACH.png",
+    alt: "College Arch lifestyle shot",
+  },
+  {
+    slotKey: "product_bg:lurker-tee",
+    file: "swamp-images/LURKER BG - ZACH.png",
+    alt: "Lurker Tee lifestyle shot",
+  },
+  {
+    slotKey: "product_bg:lurker-longsleeve",
+    file: "swamp-images/LURKER LONGSLEEVE BG - ZACH.png",
+    alt: "Lurker Longsleeve lifestyle shot",
   },
 ];
 

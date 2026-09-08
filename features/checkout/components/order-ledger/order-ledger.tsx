@@ -13,7 +13,9 @@ export type OrderLedgerProps = {
 };
 
 // The mockups quote one number ("PLEASE VENMO $20"). Shipping (D2) makes that a
-// sum, and nobody should learn the real charge inside the card fields.
+// sum, and nobody should learn the real charge inside the card fields. On
+// Direction A's ink panel it reads as the film page's own hairline-ruled
+// credits block: cream lines, red total, one red rule above.
 export function OrderLedger({
   name,
   priceCents,
@@ -23,7 +25,7 @@ export function OrderLedger({
   totalDisplay,
 }: OrderLedgerProps) {
   return (
-    <dl className="flex flex-col gap-1 border-t-2 border-current pt-3 text-sm tracking-widest">
+    <dl className="flex flex-col gap-1.5 border-t border-brand-red/35 pt-4 text-[11px] tracking-[0.2em] text-cream/55 uppercase">
       <div className="flex items-baseline justify-between gap-4">
         <dt>
           {name.toUpperCase()}
@@ -35,7 +37,7 @@ export function OrderLedger({
         <dt>{deliveryLabel}</dt>
         <dd>{shippingCents > 0 ? formatUsd(shippingCents) : orderCopy.free}</dd>
       </div>
-      <div className="flex items-baseline justify-between gap-4 font-display text-2xl tracking-wide">
+      <div className="mt-1 flex items-baseline justify-between gap-4 font-display text-xl tracking-[0.04em] text-brand-red">
         <dt>{orderCopy.total}</dt>
         <dd>{totalDisplay}</dd>
       </div>

@@ -535,3 +535,82 @@ path stays open. Until all of that is done, `/admin` sign-in is broken —
 
 Asked and answered in chat 2026-08-22; recorded above as D1–D4. Nothing remains open
 at design level. Build-level calls (BD-n) live in `PLAN.md`.
+
+## As built (storefront redesign → Direction A, 2026-09-08)
+
+**Amends nothing ratified.** D1–D4 are untouched: the catalog still lives in our
+Postgres (BD-3), checkout is still Stripe-only under D2, and the money path was
+not opened. This is a look, recorded here because the look is the product.
+
+**What was decided and by whom.** Zach picked Direction A ("Feature
+Presentation") on 2026-09-08 from a three-direction canvas
+(`https://claude.ai/code/artifact/b86aa346-94c0-4157-b188-05b2aa844026`);
+`docs/incomplete/direction-a-handoff.md` is the brief this was built from.
+**The founder has not seen it.** His sign-off is outstanding on the whole look
+and on the flagged copy below.
+
+**The thesis, so a later session can tell a deviation from a bug.** The store is
+an A24 film page. Everything sits on `--ink`. Photography and the negative space
+around it carry the page; type is small, wide-tracked and quiet except where it
+names something. Cream reads, red names and acts, yellow is the ratified
+"this one is live" and appears nowhere else.
+
+**What Direction A traded away, deliberately:**
+
+- P2's 14vw edge-to-edge red masthead, for a restrained ~76px cream one under
+  the star mark. The founder's own mock is the loud version; this is the one
+  decision most likely to come back at sign-off.
+- The Homer-style cutout grid on the landing, for a film-credits index — one
+  row per product, `№ / NAME / SIZES / PRICE` on brand-red hairlines. The
+  cutouts are now rendered on **no** page; they remain seeded and available.
+- The product page's centred cutout-over-photo composition, for a split: the
+  shoot full-bleed on the left ~60%, an ink panel on the right ~40% carrying
+  name, price, the order block and the model credits.
+
+**The checkout was re-skinned, not reopened.** `actions/`, the webhook and every
+branch of the order flow are byte-for-byte what P3 shipped; what changed is
+containers, alignment and palette. Stripe Elements cannot see our stylesheet, so
+`features/checkout/lib/stripe-appearance.ts` now resolves `--ink` as well and
+maps the fields cream-on-ink (labels stay red, focus stays yellow, errors stay
+red). The two-step flow is intact: NEXT carries the size row to the card step,
+SUBMIT is still the act that sends the order.
+
+**One state changed shape.** The un-keyed `ORDERS OPEN SOON` branch no longer
+prints its own price line. P2's guarantee was that the price shows plainly
+wherever the order block isn't; on Direction A's panel the price is stated above
+the order block on every branch, so the branch's own copy of it was a second
+price on one screen. The read-only size row it also guards is unchanged.
+
+**Copy.** Lifted verbatim and unchanged: SWAMP MAGAZINE, FROM LALO FARRO, THE
+FIRST ISSUE, BACK, NAME, SUBMIT, the ticker line, product names/prices/sizes,
+and model credits (from `products.model_credits`, which is the source of truth —
+not any mockup shorthand). Newly flagged and **needing founder sign-off**:
+
+- `THE FIRST ISSUE — FALL 2025` as the hero's foot caption. "FALL 2025" is
+  printed on the crewneck in his own photographs but has never been site copy;
+  dating the issue is a Direction A idea, not his.
+- `SIZE` as a visible label on the size row (previously an `sr-only` legend).
+
+Both live in flagged constants — `features/storefront/lib/storefront-copy.ts`
+(new, same register as `order-copy.ts`) and `orderCopy.size` — so a review reads
+the words without reading a component.
+
+**Imagery.** The five SWAMP WITH ZACH shoots were converted from the founder's
+PDFs and staged in the gitignored `swamp-images/`. `product_bg` slots were
+seeded for vamp-tee, college-arch, lurker-tee and lurker-longsleeve.
+**star-shorts was deliberately left out**: its slot already points at
+`SHORTS GRID BACKGROUND SS.png` and the seed's uploader upserts, so listing it
+would have silently replaced a live image. Whether Zach's new shot should
+replace it is the founder's call, and P4's admin uploader — which versions files
+instead of overwriting — is the safer mechanism for it.
+
+**Not proven, and not claimed.** No purchase was taken through the re-skinned
+form. What was observed on 2026-09-08 against the live database, in an 8m26s
+`live` window (13:38:03Z → 13:46:29Z, restored to `coming_soon` with `drop_at`
+null): the landing at 1440 and 375, the product page in both its orderable
+(college-arch) and fully sold-out (vamp-tee, genuinely 0 across every size)
+states, the size and delivery selections turning yellow with the ledger
+following to `$30`, and the film band captioned from the DB. The card step was
+not reached, so the Stripe appearance mapping above is **unverified against
+rendered Elements** — the values are resolved correctly off `:root`, but nobody
+has seen a card field on ink.

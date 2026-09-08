@@ -36,10 +36,16 @@ const deliveryOptions: { value: DeliveryMethod; label: string; price: string }[]
     {
       value: "shipping",
       label: orderCopy.shipping,
-      price: `+${formatUsd(dials.shippingFlatRateCents)}`,
+      // The rate is the dial's, never a literal -- change it in config/dials.ts
+      // and this line and the Stripe shipping option move together.
+      price: formatUsd(dials.shippingFlatRateCents),
     },
   ];
 
+// Direction A re-skin: same flow, same states, left-aligned on the ink panel
+// instead of centred on a photograph. Cream carries the reading, yellow is the
+// ratified "this one is live", red is reserved for the acts (NEXT / SUBMIT) and
+// for anything gone wrong.
 export function CheckoutForm({
   slug,
   name,
@@ -102,30 +108,33 @@ export function CheckoutForm({
 
   if (!stripePromise || errorReason === "stripe-unconfigured") {
     return (
-      <div className="flex w-full flex-col gap-5 text-center font-body text-brand-red">
+      <div className="flex w-full flex-col gap-6 font-body text-cream">
         {/* The sizes stay on the page when ordering is not armed yet. Dropping
             them would take the row the mockups are built around off the product
             screen, so an un-keyed deploy would read as broken rather than as
-            not open yet. */}
-        <ul className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-2 font-display text-4xl leading-none sm:text-5xl">
-          {sizes.map((option) => (
-            <li
-              key={option.size}
-              className={option.soldOut ? "line-through opacity-40" : undefined}
-            >
-              {option.size}
-              {option.soldOut ? <span className="sr-only"> sold out</span> : null}
-            </li>
-          ))}
-        </ul>
-        {/* P2's product page guaranteed the price shows plainly wherever the
-            order block isn't. The ledger carries it once ordering is armed, but
-            this branch has no ledger, so the price is stated on its own -- bare,
-            with no delivery or total line that would imply you can buy it yet. */}
-        <p className="font-display text-2xl sm:text-3xl">
-          {formatUsd(priceCents)}
-        </p>
-        <p className="font-display text-3xl tracking-wide opacity-70 sm:text-4xl">
+            not open yet. The price is not repeated here: Direction A's panel
+            states it above this block on every branch, and P2's guarantee that
+            it "shows plainly wherever the order block isn't" is what that
+            satisfies. */}
+        <div>
+          <p className="mb-3 text-[10px] font-semibold tracking-[0.35em] text-cream/50">
+            {orderCopy.size}
+          </p>
+          <ul className="flex flex-wrap items-baseline gap-x-[30px] gap-y-2 font-display text-2xl leading-none md:text-[26px]">
+            {sizes.map((option) => (
+              <li
+                key={option.size}
+                className={
+                  option.soldOut ? "text-cream/30 line-through" : "text-cream/45"
+                }
+              >
+                {option.size}
+                {option.soldOut ? <span className="sr-only"> sold out</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="font-display text-2xl tracking-[0.06em] text-brand-red md:text-[30px]">
           {orderErrorLines["stripe-unconfigured"]}
         </p>
       </div>
@@ -156,21 +165,23 @@ export function CheckoutForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full flex-col gap-5 text-center font-body text-brand-red"
+      className="flex w-full flex-col gap-6 font-body text-cream md:gap-[34px]"
     >
       <fieldset disabled={isPending}>
-        <legend className="sr-only">SIZE</legend>
-        <div className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-2 font-display text-4xl leading-none sm:text-5xl">
+        <legend className="mb-3 text-[10px] font-semibold tracking-[0.35em] text-cream/50">
+          {orderCopy.size}
+        </legend>
+        <div className="flex flex-wrap items-baseline gap-x-[30px] gap-y-2 font-display text-2xl leading-none md:text-[26px]">
           {sizes.map((option) => (
             <label
               key={option.size}
               className={cn(
-                "cursor-pointer",
+                "cursor-pointer transition-colors duration-200",
                 option.soldOut
-                  ? "cursor-not-allowed line-through opacity-40"
+                  ? "cursor-not-allowed text-cream/30 line-through"
                   : size === option.size
                     ? "text-brand-yellow"
-                    : "hover:opacity-70",
+                    : "text-cream/45 hover:text-cream",
               )}
             >
               <input
@@ -195,15 +206,15 @@ export function CheckoutForm({
 
       <fieldset disabled={isPending}>
         <legend className="sr-only">DELIVERY</legend>
-        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 font-display text-2xl leading-none">
+        <div className="flex flex-wrap gap-x-[30px] gap-y-2 text-[11px] font-semibold tracking-[0.2em] md:text-xs">
           {deliveryOptions.map((option) => (
             <label
               key={option.value}
               className={cn(
-                "cursor-pointer",
+                "cursor-pointer transition-colors duration-200",
                 delivery === option.value
                   ? "text-brand-yellow"
-                  : "hover:opacity-70",
+                  : "text-cream/45 hover:text-cream",
               )}
             >
               <input
@@ -215,10 +226,7 @@ export function CheckoutForm({
                 className="peer sr-only"
               />
               <span className="peer-focus-visible:underline peer-focus-visible:underline-offset-8">
-                {option.label}{" "}
-                <span className="font-body text-xs tracking-widest">
-                  {option.price}
-                </span>
+                {option.label} &mdash; {option.price}
               </span>
             </label>
           ))}
@@ -235,26 +243,26 @@ export function CheckoutForm({
       />
 
       {errorLine ? (
-        <p role="alert" className="text-xs font-bold tracking-widest">
+        <p role="alert" className="text-xs font-bold tracking-widest text-brand-red">
           {errorLine}
         </p>
       ) : null}
 
       {allGone ? (
-        <p className="font-display text-3xl tracking-wide opacity-70">
+        <p className="font-display text-2xl tracking-[0.06em] text-cream/60 md:text-[30px]">
           {orderCopy.soldOut}
         </p>
       ) : (
         <>
           {!size && !errorLine ? (
-            <p className="text-xs tracking-widest opacity-70">
+            <p className="text-[10px] tracking-[0.3em] text-cream/50">
               {orderCopy.pickSize}
             </p>
           ) : null}
           <button
             type="submit"
             disabled={isPending || !size}
-            className="self-center font-display text-4xl tracking-wide hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 disabled:cursor-not-allowed disabled:text-brand-red disabled:opacity-40"
+            className="self-start font-display text-2xl tracking-[0.06em] text-brand-red transition-colors duration-200 hover:text-brand-yellow focus-visible:underline focus-visible:underline-offset-8 disabled:cursor-not-allowed disabled:text-brand-red disabled:opacity-40 md:text-[30px]"
           >
             {isPending ? orderCopy.submitPending : orderCopy.next}
           </button>
